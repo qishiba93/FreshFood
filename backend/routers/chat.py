@@ -73,11 +73,11 @@ KITCHEN_ASSISTANT_SYSTEM_PROMPT = """你是一名精通中华八大菜系、食�
 
 class ChatMessage(BaseModel):
     role: str = Field(..., pattern="^(user|assistant|system)$")
-    content: str
+    content: str = Field(..., min_length=1, max_length=5000)
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="用户提问内容")
-    history: Optional[List[ChatMessage]] = Field(default=[], description="历史对话上下文")
+    message: str = Field(..., min_length=1, max_length=2000, description="用户提问内容")
+    history: Optional[List[ChatMessage]] = Field(default=[], max_length=12, description="历史对话上下文")
     recipe_context: Optional[Dict[str, Any]] = Field(default=None, description="从菜谱跳转过来的菜谱上下文")
     memory_summary: Optional[str] = Field(default=None, description="长对话前序压缩记忆摘要")
 
@@ -103,17 +103,47 @@ def clean_llm_json(raw_text: str) -> dict:
             except Exception:
                 pass
 
-    return {
-        "is_refused": False,
-        "reply": text if text else "大厨已收到您的要求，正在为您处理。",
-        "actions": {
-            "add_shopping": [],
-            "remove_shopping": [],
-            "clear_all_shopping": False,
-            "store_to_pantry": [],
-            "move_pantry_item": []
-        }
-    }
+    return {"is_refused": False, "reply": text, "actions": {}} if text else {}
+
+
+def build_history_messages(history: Optional[List[ChatMessage]], user_input: str) -> List[dict]:
+    """Build a compact history that reinforces the required assistant JSON shape."""
+    recent = list(history or [])[-12:]
+
+    # Older frontends included the current question in history before also
+    # sending it as `message`. Remove that duplicate defensively.
+    while recent and recent[-1].role == "user" and recent[-1].content.strip() == user_input:
+        recent.pop()
+
+    normalized = []
+    for item in recent:
+        content = item.content.strip()
+        if not content or item.role == "system":
+            continue
+        if item.role == "assistant":
+            content = json.dumps({
+                "is_refused": False,
+                "reply": content,
+                "actions": {
+                    "add_shopping": [],
+                    "remove_shopping": [],
+                    "clear_all_shopping": False,
+                    "store_to_pantry": [],
+                    "move_pantry_item": [],
+                },
+            }, ensure_ascii=False)
+        normalized.append({"role": item.role, "content": content})
+    return normalized
+
+
+def extract_reply(parsed: dict) -> str:
+    return str(
+        parsed.get("reply")
+        or parsed.get("content")
+        or parsed.get("message")
+        or parsed.get("answer")
+        or ""
+    ).strip()
 
 @router.post("/kitchen-assistant")
 async def chat_with_kitchen_assistant(
@@ -142,10 +172,8 @@ async def chat_with_kitchen_assistant(
         )
         messages_payload.append({"role": "system", "content": context_prompt})
 
-    # 保留最近 12 轮交互，确保上下文指代（“它/放到下层吧”）能够精准识别前文提到的食材
-    if req.history:
-        for h in req.history[-12:]:
-            messages_payload.append({"role": h.role, "content": h.content})
+    # 保留最近 12 条历史消息，兼顾上下文指代和请求体积。
+    messages_payload.extend(build_history_messages(req.history, user_input))
 
     messages_payload.append({"role": "user", "content": user_input})
 
@@ -158,47 +186,44 @@ async def chat_with_kitchen_assistant(
         "model": DEEPSEEK_MODEL,
         "messages": messages_payload,
         "temperature": 0.35,
+        "max_tokens": 1200,
         "response_format": {"type": "json_object"}
     }
 
     parsed = {}
+    upstream_error = ""
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(DEEPSEEK_API_URL, headers=headers, json=payload)
-            if resp.status_code == 200:
+            for attempt in range(2):
+                if attempt == 1:
+                    payload["messages"] = [dict(message) for message in messages_payload]
+                    payload["messages"][0]["content"] += (
+                        "\n\n【响应校验】：上一响应缺少 reply。请重新回答当前问题，"
+                        "必须返回包含非空 reply 和完整 actions 的 JSON 对象。"
+                    )
+                resp = await client.post(DEEPSEEK_API_URL, headers=headers, json=payload)
+                if resp.status_code != 200:
+                    upstream_error = f"DeepSeek 返回 HTTP {resp.status_code}"
+                    break
                 raw_body = resp.json()["choices"][0]["message"]["content"]
                 parsed = clean_llm_json(raw_body)
-            else:
-                parsed = {
-                    "is_refused": False,
-                    "reply": "大厨服务器正在繁忙调度中，请稍后再试一次哦。",
-                    "actions": {}
-                }
+                if extract_reply(parsed):
+                    break
+                upstream_error = "DeepSeek 连续返回空内容"
     except Exception as e:
-        parsed = {
-            "is_refused": False,
-            "reply": f"大厨连接厨房网络稍有延迟，请稍后重新发送一次。(详情: {str(e)[:60]})",
-            "actions": {}
-        }
+        upstream_error = f"连接 DeepSeek 失败：{str(e)[:80]}"
 
-    # 多字段容错提取 reply，确保绝对不为空
-    reply_text = (
-        parsed.get("reply") or
-        parsed.get("content") or
-        parsed.get("message") or
-        parsed.get("answer") or
-        ""
-    ).strip()
+    reply_text = extract_reply(parsed)
 
     is_refused = parsed.get("is_refused", False)
     actions = parsed.get("actions", {}) or {}
 
-    # 终极保底：如果大模型依然输出了空字符串，给出友好合理指引
+    # 明确告知用户上游异常，避免用“已处理”掩盖失败。
     if not reply_text:
         if is_refused:
             reply_text = "抱歉呀，此对话并非智鲜大厨的智能服务范围。我只专注于食材保鲜、冰箱管理与烹饪菜谱相关咨询。请问有什么厨房需求我可以协助您吗？"
         else:
-            reply_text = "好的，我已经为您记录并调整了操作！还有什么食材或烹饪问题需要协助吗？"
+            reply_text = f"AI 大厨暂时没有生成有效回答，请稍后重试。({upstream_error or '响应格式异常'})"
 
     executed_summary = []
 

@@ -1424,6 +1424,9 @@ window.sendUserChatMessage = async function(forcedMessage = null) {
     inputEl.value = "";
   }
 
+  // 请求历史必须只包含当前问题之前的消息。
+  const historyForRequest = chatHistory.slice(-12);
+
   // 1. 渲染用户问题气泡
   appendChatMessage('user', text);
   chatHistory.push({ role: 'user', content: text });
@@ -1436,7 +1439,7 @@ window.sendUserChatMessage = async function(forcedMessage = null) {
 
     const payload = {
       message: text,
-      history: chatHistory.slice(-12),
+      history: historyForRequest,
       recipe_context: currentChatRecipeContext,
       memory_summary: currentSummary
     };
