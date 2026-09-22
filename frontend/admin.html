@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full bg-slate-100">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智鲜厨房 OS - 系统管理员控制台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body class="h-full flex text-slate-800 antialiased bg-slate-100 select-none overflow-hidden">
+
+  <!-- ================= 管理员左侧导航 ================= -->
+  <aside class="w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between p-5 shrink-0 shadow-sm z-40">
+    <div>
+      <div class="flex items-center space-x-3 mb-8 px-2">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-emerald-200">
+          🛡️
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-slate-900 tracking-tight">智鲜运维控制台</h1>
+          <p class="text-[11px] text-emerald-700 font-bold mt-0.5">管理员独立系统</p>
+        </div>
+      </div>
+
+      <nav class="space-y-1.5">
+        <!-- 默认首屏：全员综合热力总图置顶 -->
+        <button id="navBtnHeatmap" onclick="switchAdminTab('heatmap')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-emerald-800 bg-emerald-50 transition border border-emerald-200 shadow-xs">
+          <span class="text-lg">📊</span>
+          <span>全员综合热力总图</span>
+        </button>
+
+        <!-- 第二位：用户与权限管理 -->
+        <button id="navBtnUsers" onclick="switchAdminTab('users')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition">
+          <span class="text-lg">👥</span>
+          <span>用户与权限管理</span>
+        </button>
+
+        <button id="navBtnReports" onclick="switchAdminTab('reports')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition">
+          <span class="text-lg">⚠️</span>
+          <span>违规反馈处置台</span>
+        </button>
+
+        <button id="navBtnAuditLogs" onclick="switchAdminTab('audit-logs')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition">
+          <span class="text-lg">📜</span>
+          <span>用户行为操作日志</span>
+        </button>
+
+        <button id="navBtnFoodImages" onclick="switchAdminTab('food-images')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition">
+          <span class="text-lg">🖼️</span>
+          <span>标准食材图库管理</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- 登录者信息与退出 -->
+    <div class="space-y-2">
+      <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span id="adminNameLabel" class="font-bold text-emerald-900 truncate text-xs">🛡️ 管理员</span>
+          <span id="adminRoleBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">超级管理</span>
+        </div>
+        <button onclick="logoutAdmin()" class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1">
+          <span>🚪</span> <span>退出管理后台</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= 管理员主体工作区 ================= -->
+  <main class="flex-1 overflow-y-auto h-screen p-8 flex flex-col items-center custom-scrollbar">
+    <div class="w-full max-w-5xl space-y-6">
+
+      <!-- 1. 全员多维综合活跃热力大屏 (调换为默认首页) -->
+      <div id="sectionHeatmap" class="space-y-6">
+        <header class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span>📊</span> 全景智能厨房多维活跃大屏
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">集成核心运营看板、一日三餐作息洞察、GitHub 贡献日历与日期下钻流水</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="heatmapRangeSelect" onchange="loadGlobalHeatmap()" class="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-700 outline-none">
+              <option value="30" selected>近 30 天全景</option>
+              <option value="60">近 60 天长程追踪</option>
+              <option value="14">近 14 天近况</option>
+            </select>
+            <button onclick="loadGlobalHeatmap()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+              刷新数据大屏
+            </button>
+          </div>
+        </header>
+
+        <!-- 四大核心运营 KPI 统计卡片 -->
+        <div id="kpiMetricsGrid" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span class="text-xs text-slate-500 font-medium">周期全站总交互频次</span>
+            <div class="mt-2 flex items-baseline gap-1">
+              <strong id="kpiTotalActions" class="text-2xl font-black text-slate-900 font-mono">0</strong>
+              <span class="text-xs text-slate-400">次流水</span>
+            </div>
+            <span class="text-[10px] text-emerald-600 font-semibold mt-1">含食材录入、做菜与社区</span>
+          </div>
+
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span class="text-xs text-slate-500 font-medium">活跃厨房开火覆盖率</span>
+            <div class="mt-2 flex items-baseline gap-1">
+              <strong id="kpiActiveRate" class="text-2xl font-black text-emerald-600 font-mono">0%</strong>
+              <span id="kpiActiveCount" class="text-xs text-slate-400">(0/0 户)</span>
+            </div>
+            <span class="text-[10px] text-slate-400 mt-1">周期内有实际行为的注册家庭</span>
+          </div>
+
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span class="text-xs text-slate-500 font-medium">最集中开火做饭日</span>
+            <div class="mt-2 flex items-baseline gap-1">
+              <strong id="kpiPeakWeekday" class="text-xl font-black text-amber-600">周一</strong>
+              <span class="text-xs text-slate-400">频次最高</span>
+            </div>
+            <span class="text-[10px] text-amber-700 font-semibold mt-1">适合发起临期食材消耗挑战</span>
+          </div>
+
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col justify-between">
+            <span class="text-xs text-slate-500 font-medium">全天用火峰值时段</span>
+            <div class="mt-2 flex items-baseline gap-1">
+              <strong id="kpiPeakHour" class="text-xl font-black text-teal-700 font-mono">18:00</strong>
+              <span id="kpiPeakHourCount" class="text-xs text-slate-400">次高峰</span>
+            </div>
+            <span class="text-[10px] text-teal-600 font-semibold mt-1">系统晚间正餐高负载时段</span>
+          </div>
+        </div>
+
+        <!-- 第一行：GitHub 风格全局贡献日历墙 + 活跃排行 Top 5 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <section class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <span>🟩</span> 全系统日常烹饪贡献墙 (点击任意格子下钻明细)
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">纵向为周一至周日，横向为日期递进，方格颜色深浅反映全站总动态</p>
+              </div>
+              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span>空闲</span>
+                <span class="w-3 h-3 rounded-xs bg-slate-200/60 border border-slate-200"></span>
+                <span class="w-3 h-3 rounded-xs bg-emerald-200"></span>
+                <span class="w-3 h-3 rounded-xs bg-emerald-400"></span>
+                <span class="w-3 h-3 rounded-xs bg-emerald-600"></span>
+                <span>高潮</span>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto pb-2 custom-scrollbar">
+              <div id="githubCalendarContainer" class="min-w-[620px] p-3 bg-slate-50 rounded-2xl border border-slate-100"></div>
+            </div>
+          </section>
+
+          <section class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                <span>🏆</span> 最勤奋厨房之星 Top 5
+              </h3>
+              <div id="topActiveUsersList" class="space-y-2.5"></div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
+              * 依据指定周期内的入库、做菜核销、发帖等操作总频次综合排名
+            </div>
+          </section>
+        </div>
+
+        <!-- 第二行：一日三餐作息节律洞察 + 7×24H 交叉打卡打卡矩阵 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <section class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <span>🕒</span> 7 × 24H 烹饪峰值交叉打卡矩阵 (Punchcard Heatmap)
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">洞察用户集中在“周几”以及“几点”开火做饭或整理冰箱</p>
+              </div>
+              <span class="text-xs font-semibold text-emerald-700 font-mono" id="peakHourTip">正在识别用火高峰...</span>
+            </div>
+
+            <div class="overflow-x-auto pb-2 custom-scrollbar">
+              <div id="punchcardContainer" class="min-w-[700px]"></div>
+            </div>
+          </section>
+
+          <section class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2 mb-1">
+                <span>🍲</span> 一日三餐作息节律洞察
+              </h3>
+              <p class="text-[11px] text-slate-400 mb-3.5">全站家庭集中开火的时段分布情况</p>
+              <div id="mealPeriodsContainer" class="space-y-3.5"></div>
+            </div>
+            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 text-[11px] text-emerald-900 mt-4">
+              💡 <strong>餐饮洞察：</strong> 用户普遍集中在晚间烹饪，系统晚餐菜谱算法需侧重慢火入味与临期消灭。
+            </div>
+          </section>
+        </div>
+
+        <!-- 第三行：点击日期下钻穿透流水抽屉面板 -->
+        <section id="dailyDrilldownSection" class="bg-white p-6 rounded-3xl border border-emerald-200 shadow-sm space-y-3">
+          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>🔍</span> 单日行为下钻穿透面板：<strong id="drilldownDateTitle" class="text-emerald-700 font-mono">请在上方点击任意日期方格</strong>
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">即刻查阅指定自然日全站所有真实操作流水</p>
+            </div>
+            <span id="drilldownCountBadge" class="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-bold font-mono">0 条记录</span>
+          </div>
+          <div id="drilldownLogsList" class="max-h-56 overflow-y-auto pr-1 custom-scrollbar divide-y divide-slate-100 text-xs text-slate-600">
+            <div class="py-6 text-center text-slate-400 text-xs">点击上方贡献墙上的任意绿色方块，即可在此展开当天明细</div>
+          </div>
+        </section>
+
+        <!-- 第四行：各注册会员纵向网格 + 行为占比条 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <section class="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <span>👥</span> 各注册会员纵向活跃明细网格
+              </h3>
+              <span class="text-xs text-slate-400">悬停方格可查阅具体操作记录</span>
+            </div>
+            <div class="overflow-x-auto pb-2 custom-scrollbar">
+              <div id="globalMatrixContainer" class="min-w-[650px]"></div>
+            </div>
+          </section>
+
+          <section class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
+                <span>🥧</span> 系统核心功能热度分布
+              </h3>
+              <div id="actionBreakdownContainer" class="space-y-3"></div>
+            </div>
+            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-[11px] text-emerald-900">
+              💡 <strong>运营建议：</strong> 若“做菜消耗”比例偏低，可考虑在社区置顶临期食材挑战赛。
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 2. 用户与权限管理 (调换为第二位，带搜索过滤栏) -->
+      <div id="sectionUsers" class="hidden space-y-6">
+        <header class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span>👥</span> 系统用户与权限管理
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">权限规则：超级管理员可管理全部账号；一般管理员只能管理普通用户</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openCreateUserModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5 shrink-0">
+              <span>➕</span> <span>新建系统账号</span>
+            </button>
+            <button onclick="loadAdminUsers()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shrink-0">
+              刷新列表
+            </button>
+          </div>
+        </header>
+
+        <section class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+          <!-- 新增搜索栏与过滤面板 -->
+          <div class="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="relative w-full sm:w-80">
+              <input type="text" id="userSearchInput" oninput="filterAdminUsers()" placeholder="输入用户名、UID或角色(admin/user)搜索..."
+                     class="w-full pl-9 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition shadow-2xs">
+              <span class="absolute left-3 top-2.5 text-xs text-slate-400">🔍</span>
+              <button onclick="clearUserSearch()" id="clearUserSearchBtn" class="hidden absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <span id="userSearchCountBadge" class="text-xs font-mono font-bold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">共 -- 个账号</span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+                  <th class="py-3 px-4">UID</th>
+                  <th class="py-3 px-4">用户名</th>
+                  <th class="py-3 px-4">角色权限</th>
+                  <th class="py-3 px-4">注册时间</th>
+                  <th class="py-3 px-4 text-right">运维操作</th>
+                </tr>
+              </thead>
+              <tbody id="adminUserTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- 3. 违规反馈处置工作台 -->
+      <div id="sectionReports" class="hidden space-y-6">
+        <header class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span>⚠️</span> 社区内容风控与违规反馈处理台
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">支持同帖多人举报自动合并、点击卡片深入查看帖子与举报明细</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="reportFilterStatus" onchange="loadAdminReports()" class="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-700 outline-none">
+              <option value="all">全部工单状态</option>
+              <option value="pending" selected>仅看待审核 (Pending)</option>
+              <option value="approved">已处置下架</option>
+              <option value="rejected">已驳回正常</option>
+            </select>
+            <button onclick="loadAdminReports()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+              刷新工单
+            </button>
+          </div>
+        </header>
+
+        <section id="reportsGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4"></section>
+      </div>
+
+      <!-- 4. 全员操作行为审计日志流水 -->
+      <div id="sectionAuditLogs" class="hidden space-y-6">
+        <header class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span>📜</span> 系统操作全周期审计日志
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">追踪全员在指定时间范围内的行为流水记录</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="auditDaysSelect" onchange="loadAdminAuditLogs()" class="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-700 outline-none">
+              <option value="3">近 3 天流水</option>
+              <option value="7" selected>近 7 天流水</option>
+              <option value="30">近 30 天流水</option>
+            </select>
+            <select id="auditTypeSelect" onchange="loadAdminAuditLogs()" class="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold text-slate-700 outline-none">
+              <option value="all">全类型动作</option>
+              <option value="add">食材入库</option>
+              <option value="consume">做菜消耗</option>
+              <option value="post">发布社区动态</option>
+              <option value="report">发起举报</option>
+            </select>
+            <button onclick="loadAdminAuditLogs()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+              检索流水
+            </button>
+          </div>
+        </header>
+
+        <section class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+                  <th class="py-3 px-4">操作时间</th>
+                  <th class="py-3 px-4">用户名称</th>
+                  <th class="py-3 px-4">动作类型</th>
+                  <th class="py-3 px-4">具体操作说明与关联菜品</th>
+                </tr>
+              </thead>
+              <tbody id="auditLogsTableBody" class="divide-y divide-slate-100 font-mono"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- 5. 官方标准食材图库管理 -->
+      <div id="sectionFoodImages" class="hidden space-y-6">
+        <header class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span>🖼️</span> 统一标准食材图库管理
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">维护官方统一食物高清封面，用户录入时自动匹配采用</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openCreateFoodImageModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5">
+              <span>➕</span> <span>收录新标准食材</span>
+            </button>
+            <button onclick="loadAdminFoodImages()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+              刷新图库
+            </button>
+          </div>
+        </header>
+
+        <section id="foodImagesGridContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></section>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ================= 弹窗集合 ================= -->
+
+  <!-- 弹窗：帖子详情与举报明细 -->
+  <div id="postReportDetailModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+            <span>🛡️</span> 帖子风控审核与举报详情
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">全面核查帖子原始内容及多位食友的具体举报陈述</p>
+        </div>
+        <button onclick="document.getElementById('postReportDetailModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div id="postReportDetailBody" class="flex-1 overflow-y-auto space-y-4 my-4 pr-1 custom-scrollbar"></div>
+
+      <div id="postReportDetailFooter" class="pt-3 border-t border-slate-100 flex justify-between items-center">
+        <span class="text-xs text-slate-400">请核查后审慎做出合规处置</span>
+        <div class="flex gap-2" id="postReportDetailActionBtns"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗：管理员新建账号 -->
+  <div id="createUserModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl flex flex-col">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">➕ 新建系统账号</h3>
+        <button onclick="document.getElementById('createUserModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">用户名</label>
+          <input type="text" id="newUsername" placeholder="至少2位字符" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">初始密码</label>
+          <input type="password" id="newPassword" placeholder="至少4位字符" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">角色权限</label>
+          <select id="newRole" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="user">普通用户 (user)</option>
+            <option value="admin" id="optionAdminRole">一般管理员 (admin)</option>
+          </select>
+          <span id="createRoleHint" class="text-[10px] text-slate-400 mt-1 block">* 一般管理员只能开通普通用户账号</span>
+        </div>
+
+        <button onclick="submitCreateUser()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm mt-2">
+          确认创建
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗：重置密码 -->
+  <div id="resetPwdModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl flex flex-col">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <h3 id="resetPwdTitle" class="font-bold text-base text-slate-900">重置密码</h3>
+        <button onclick="document.getElementById('resetPwdModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">输入新密码</label>
+          <input type="password" id="resetNewPassword" placeholder="至少4位新密码" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <button onclick="submitResetPassword()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm mt-2">
+          确认重置
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗：收录标准食材图库 -->
+  <div id="createFoodImageModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl flex flex-col space-y-3">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">🖼️ 收录标准食材封面</h3>
+        <button onclick="document.getElementById('createFoodImageModal').classList.add('hidden')" class="text-slate-400 text-xl font-bold">✕</button>
+      </div>
+
+      <form onsubmit="submitCreateFoodImage(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">标准食材名称</label>
+          <input type="text" id="stdFoodName" placeholder="如: 番茄" class="w-full px-3 py-2 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500" required />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">别名同义词 (逗号分隔)</label>
+          <input type="text" id="stdSynonyms" placeholder="如: 西红柿,小番茄,洋柿子" class="w-full px-3 py-2 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">食材品类</label>
+          <select id="stdCategory" class="w-full px-3 py-2 border rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="vegetable">新鲜蔬菜</option>
+            <option value="meat">肉禽蛋类</option>
+            <option value="seafood">水产海鲜</option>
+            <option value="fruit">时令水果</option>
+            <option value="staple">粮油米面</option>
+            <option value="other">其他生鲜</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">高清图片文件</label>
+          <input type="file" id="stdImageFileInput" accept="image/*" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:bg-emerald-50 file:text-emerald-700" required />
+        </div>
+        <button type="submit" id="btnSubmitStdImg" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm mt-2">
+          上传并录入图库
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= 管理端专属交互逻辑 ================= -->
+  <script type="module">
+    import { Api } from '/js/api.js';
+
+    let currentAdmin = null;
+    let targetResetUserId = null;
+    // 默认进入热力图
+    let currentTab = 'heatmap';
+    let allUsersCache = [];
+
+    window.currentReportsCache = [];
+    window.globalDailyDetailsCache = {};
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const token = localStorage.getItem("freshplate_token");
+      if (!token) {
+        window.location.href = "/";
+        return;
+      }
+
+      try {
+        const me = await Api.getMe();
+        if (me.role !== 'admin' && me.role !== 'super_admin') {
+          alert("无权访问管理员后台，已返回普通用户空间");
+          window.location.href = "/";
+          return;
+        }
+
+        currentAdmin = me;
+        const isSuper = (me.role === 'super_admin' || me.id === 1 || me.username === 'admin');
+        document.getElementById("adminNameLabel").textContent = `🛡️ ${me.username}`;
+        document.getElementById("adminRoleBadge").textContent = isSuper ? "超级管理" : "一般管理";
+
+        const optAdmin = document.getElementById("optionAdminRole");
+        const hint = document.getElementById("createRoleHint");
+        if (!isSuper && optAdmin) {
+          optAdmin.disabled = true;
+          hint.textContent = "* 您是一般管理员，只能为系统新建普通用户账号";
+        }
+
+        // 默认直接打开热力图首屏
+        await switchAdminTab('heatmap');
+      } catch (e) {
+        window.location.href = "/";
+      }
+    });
+
+    window.logoutAdmin = function() {
+      localStorage.removeItem("freshplate_token");
+      localStorage.removeItem("freshplate_role");
+      window.location.href = "/";
+    };
+
+    window.switchAdminTab = async function(tab) {
+      currentTab = tab;
+      const tabs = ['heatmap', 'users', 'reports', 'audit-logs', 'food-images'];
+
+      tabs.forEach(t => {
+        const sec = document.getElementById(`section${capitalize(t)}`);
+        const btn = document.getElementById(`navBtn${capitalize(t)}`);
+        if (sec) sec.classList.toggle("hidden", t !== tab);
+        if (btn) {
+          if (t === tab) {
+            btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-emerald-800 bg-emerald-50 transition border border-emerald-200 shadow-xs";
+          } else {
+            btn.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-semibold text-slate-600 hover:bg-emerald-50/60 hover:text-emerald-800 transition";
+          }
+        }
+      });
+
+      if (tab === 'heatmap') await loadGlobalHeatmap();
+      else if (tab === 'users') await loadAdminUsers();
+      else if (tab === 'reports') await loadAdminReports();
+      else if (tab === 'audit-logs') await loadAdminAuditLogs();
+      else if (tab === 'food-images') await loadAdminFoodImages();
+    };
+
+    function capitalize(str) {
+      if (str === 'audit-logs') return 'AuditLogs';
+      if (str === 'food-images') return 'FoodImages';
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    // 1. 用户列表加载与搜索过滤
+    window.loadAdminUsers = async function() {
+      const tbody = document.getElementById("adminUserTable");
+      tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-xs text-slate-400">拉取用户数据中...</td></tr>`;
+
+      try {
+        allUsersCache = await Api.adminGetUsers();
+        renderUserTable(allUsersCache);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-xs text-red-500">拉取列表异常: ${err.message}</td></tr>`;
+      }
+    };
+
+    // 渲染用户列表
+    function renderUserTable(users) {
+      const tbody = document.getElementById("adminUserTable");
+      const countBadge = document.getElementById("userSearchCountBadge");
+      tbody.innerHTML = "";
+
+      if (countBadge) {
+        countBadge.textContent = `共 ${users.length} 个账号`;
+      }
+
+      if (!users || users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-xs text-slate-400">未找到匹配的系统用户或管理员</td></tr>`;
+        return;
+      }
+
+      users.forEach(u => {
+        const tr = document.createElement("tr");
+        tr.className = "border-b border-slate-100 hover:bg-slate-50/80 text-xs transition";
+        const isSuper = u.role === 'super_admin';
+        const isAdmin = u.role === 'admin';
+        const canManage = u.can_manage;
+
+        let badgeClass = "bg-cyan-100 text-cyan-700";
+        let badgeText = "普通用户";
+        if (isSuper) {
+          badgeClass = "bg-emerald-700 text-white font-bold shadow-2xs";
+          badgeText = "超级管理员";
+        } else if (isAdmin) {
+          badgeClass = "bg-emerald-100 text-emerald-800 font-bold border border-emerald-200";
+          badgeText = "一般管理员";
+        }
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono text-slate-500">UID: ${u.id}</td>
+          <td class="py-3 px-4 font-bold text-slate-800">${u.username}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">
+              ${badgeText}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-slate-400 font-mono">${u.created_at}</td>
+          <td class="py-3 px-4 text-right space-x-2">
+            ${canManage ? `
+              <button onclick="openResetPasswordModal(${u.id}, '${u.username}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
+                🔑 改密
+              </button>
+              <button onclick="deleteUser(${u.id}, '${u.username}')" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition border border-red-200">
+                🗑️ 级联删除
+              </button>
+            ` : '<span class="text-[11px] text-slate-300 select-none">受限保护</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 搜索过滤用户/管理员
+    window.filterAdminUsers = function() {
+      const q = (document.getElementById("userSearchInput")?.value || "").trim().toLowerCase();
+      const clearBtn = document.getElementById("clearUserSearchBtn");
+      if (clearBtn) clearBtn.classList.toggle("hidden", !q);
+
+      if (!q) {
+        renderUserTable(allUsersCache);
+        return;
+      }
+
+      const filtered = allUsersCache.filter(u => {
+        const uidStr = String(u.id);
+        const nameStr = (u.username || "").toLowerCase();
+        const roleStr = (u.role || "").toLowerCase();
+        return uidStr.includes(q) || nameStr.includes(q) || roleStr.includes(q);
+      });
+
+      renderUserTable(filtered);
+    };
+
+    window.clearUserSearch = function() {
+      const input = document.getElementById("userSearchInput");
+      if (input) input.value = "";
+      window.filterAdminUsers();
+    };
+
+    // 2. 全员多维活跃大屏计算与渲染
+    window.loadGlobalHeatmap = async function() {
+      const range = document.getElementById("heatmapRangeSelect")?.value || 30;
+      const matrixContainer = document.getElementById("globalMatrixContainer");
+      const githubContainer = document.getElementById("githubCalendarContainer");
+      const punchcardContainer = document.getElementById("punchcardContainer");
+      const topListContainer = document.getElementById("topActiveUsersList");
+      const breakdownContainer = document.getElementById("actionBreakdownContainer");
+
+      matrixContainer.innerHTML = '<div class="py-6 text-center text-xs text-slate-400">聚算数据中...</div>';
+      githubContainer.innerHTML = '<div class="py-6 text-center text-xs text-slate-400">正在生成全局贡献墙...</div>';
+      punchcardContainer.innerHTML = '<div class="py-6 text-center text-xs text-slate-400">正在绘制 7×24H 时段打卡矩阵...</div>';
+
+      try {
+        const res = await fetch(`/api/auth/admin/global-heatmap?days_range=${range}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('freshplate_token')}` }
+        });
+        const data = await res.json();
+
+        window.globalDailyDetailsCache = data.daily_details || {};
+
+        renderKpiCards(data.summary_kpis);
+        renderMealPeriodDistribution(data.meal_period_distribution);
+        renderGithubContributionWall(data.dates, data.calendar_totals);
+
+        if (data.dates && data.dates.length > 0) {
+          inspectDayDetails(data.dates[data.dates.length - 1].date);
+        }
+
+        renderTopActiveUsers(data.top_active_users);
+        renderPunchcardMatrix(data.punchcard_matrix);
+        renderHeatmapMatrix(data.dates, data.users_matrix);
+        renderActionBreakdown(data.action_breakdown);
+
+      } catch (e) {
+        matrixContainer.innerHTML = `<div class="py-6 text-center text-xs text-rose-500">热力大屏加载异常: ${e.message}</div>`;
+      }
+    };
+
+    function renderKpiCards(kpis) {
+      if (!kpis) return;
+      document.getElementById("kpiTotalActions").textContent = kpis.total_actions;
+      document.getElementById("kpiActiveRate").textContent = `${kpis.activity_rate}%`;
+      document.getElementById("kpiActiveCount").textContent = `(${kpis.active_users_count}/${kpis.total_users_count} 户)`;
+      document.getElementById("kpiPeakWeekday").textContent = kpis.peak_weekday;
+      document.getElementById("kpiPeakHour").textContent = kpis.peak_hour;
+      document.getElementById("kpiPeakHourCount").textContent = `${kpis.peak_hour_count} 次高峰`;
+    }
+
+    function renderMealPeriodDistribution(periods) {
+      const container = document.getElementById("mealPeriodsContainer");
+      if (!periods || !container) return;
+
+      const items = [
+        { key: "breakfast", data: periods.breakfast, color: "bg-amber-400", text: "text-amber-700" },
+        { key: "lunch", data: periods.lunch, color: "bg-teal-500", text: "text-teal-700" },
+        { key: "dinner", data: periods.dinner, color: "bg-emerald-600", text: "text-emerald-800 font-bold" },
+        { key: "other", data: periods.other, color: "bg-slate-300", text: "text-slate-600" }
+      ];
+
+      container.innerHTML = items.map(item => `
+        <div class="space-y-1">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-700">${item.data.name}</span>
+            <span class="font-mono text-[11px] ${item.text}">${item.data.count} 次 (${item.data.pct}%)</span>
+          </div>
+          <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+            <div class="h-full ${item.color} rounded-full transition-all duration-500" style="width: ${item.data.pct}%"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderGithubContributionWall(dates, totals) {
+      const container = document.getElementById("githubCalendarContainer");
+      if (!dates || dates.length === 0) return;
+
+      const maxVal = Math.max(...Object.values(totals), 1);
+      const weekdayNames = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+
+      let weeks = [];
+      let currentWeek = new Array(7).fill(null);
+
+      dates.forEach((d) => {
+        const wday = d.weekday;
+        currentWeek[wday] = {
+          date: d.date,
+          count: totals[d.date] || 0
+        };
+        if (wday === 6) {
+          weeks.push(currentWeek);
+          currentWeek = new Array(7).fill(null);
+        }
+      });
+      if (currentWeek.some(item => item !== null)) {
+        weeks.push(currentWeek);
+      }
+
+      let html = '<div class="flex items-start gap-1.5 select-none">';
+
+      html += '<div class="flex flex-col gap-1.5 text-[9px] text-slate-400 pt-1">';
+      weekdayNames.forEach((name, idx) => {
+        html += `<span class="h-3.5 leading-3.5">${idx % 2 === 0 ? name : ''}</span>`;
+      });
+      html += '</div>';
+
+      html += '<div class="flex gap-1.5 flex-1">';
+      weeks.forEach(week => {
+        html += '<div class="flex flex-col gap-1.5">';
+        for (let i = 0; i < 7; i++) {
+          const day = week[i];
+          if (!day) {
+            html += '<div class="w-3.5 h-3.5 rounded-xs bg-transparent"></div>';
+          } else {
+            const count = day.count;
+            let bg = "bg-slate-200/60";
+            if (count > 0) {
+              const ratio = count / maxVal;
+              if (ratio < 0.25) bg = "bg-emerald-200";
+              else if (ratio < 0.55) bg = "bg-emerald-400";
+              else if (ratio < 0.85) bg = "bg-emerald-500";
+              else bg = "bg-emerald-700 shadow-xs";
+            }
+
+            const tip = `${day.date}：全站共发生 ${count} 次做菜及食材操作（点击下钻明细）`;
+            html += `
+              <div onclick="inspectDayDetails('${day.date}')"
+                   class="w-3.5 h-3.5 rounded-xs ${bg} transition-all duration-150 hover:scale-135 cursor-pointer hover:ring-2 hover:ring-emerald-400"
+                   title="${tip}">
+              </div>
+            `;
+          }
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+
+      container.innerHTML = html;
+    }
+
+    window.inspectDayDetails = function(dateStr) {
+      const titleEl = document.getElementById("drilldownDateTitle");
+      const badgeEl = document.getElementById("drilldownCountBadge");
+      const listEl = document.getElementById("drilldownLogsList");
+      if (!titleEl || !listEl) return;
+
+      titleEl.textContent = `${dateStr} 当日记录`;
+      const records = window.globalDailyDetailsCache[dateStr] || [];
+      badgeEl.textContent = `${records.length} 条记录`;
+
+      if (!records.length) {
+        listEl.innerHTML = `<div class="py-6 text-center text-slate-400 text-xs">${dateStr} 当天暂无操作行为</div>`;
+        return;
+      }
+
+      const typeMap = {
+        add: "食材入库",
+        consume: "做菜消耗",
+        collect: "菜谱收藏",
+        post: "社区打卡",
+        like: "点赞",
+        comment: "发表评论",
+        report: "违规举报"
+      };
+
+      listEl.innerHTML = records.map(r => `
+        <div class="py-2.5 flex items-center justify-between hover:bg-slate-50 px-2 rounded-xl transition">
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-[11px] text-slate-400">${r.time}</span>
+            <span class="font-bold text-xs text-slate-800">${r.username}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              ${typeMap[r.activity_type] || r.activity_type}
+            </span>
+            <span class="text-xs text-slate-600 truncate max-w-[400px]">${r.note}</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">UID:${r.user_id}</span>
+        </div>
+      `).join('');
+    };
+
+    function renderTopActiveUsers(topUsers) {
+      const container = document.getElementById("topActiveUsersList");
+      if (!topUsers || topUsers.length === 0) {
+        container.innerHTML = '<div class="text-xs text-slate-400 py-4 text-center">暂无上榜用户</div>';
+        return;
+      }
+
+      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+      container.innerHTML = topUsers.map((u, idx) => `
+        <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-100 hover:border-emerald-300 transition">
+          <div class="flex items-center gap-2.5">
+            <span class="text-base">${medals[idx]}</span>
+            <div>
+              <span class="font-bold text-xs text-slate-800">${u.username}</span>
+              <span class="text-[10px] text-slate-400 block truncate max-w-[120px]">
+                ${u.latest_act ? u.latest_act.note : '暂无最近动态'}
+              </span>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="font-mono font-black text-xs text-emerald-700">${u.total_acts}</span>
+            <span class="text-[10px] text-slate-400 block font-normal">操作积分</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPunchcardMatrix(matrix) {
+      const container = document.getElementById("punchcardContainer");
+      const peakTip = document.getElementById("peakHourTip");
+      if (!matrix) return;
+
+      const weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+      let maxCount = 0;
+      let peakDay = 0, peakHour = 0;
+
+      for (let w = 0; w < 7; w++) {
+        for (let h = 0; h < 24; h++) {
+          if (matrix[w][h] > maxCount) {
+            maxCount = matrix[w][h];
+            peakDay = w;
+            peakHour = h;
+          }
+        }
+      }
+
+      if (peakTip) {
+        peakTip.textContent = maxCount > 0
+          ? `🔥 全站高峰: ${weekdays[peakDay]} ${peakHour}:00 (${maxCount} 次活动)`
+          : `暂无活跃峰值记录`;
+      }
+
+      let html = '<div class="flex flex-col gap-1.5 select-none">';
+
+      html += '<div class="flex items-center gap-1 text-[10px] font-mono text-slate-400 pb-1 border-b border-slate-100">';
+      html += '<div class="w-12 shrink-0 font-sans font-bold text-slate-700">周期</div>';
+      for (let h = 0; h < 24; h++) {
+        html += `<div class="flex-1 text-center font-bold">${h}h</div>`;
+      }
+      html += '</div>';
+
+      for (let w = 0; w < 7; w++) {
+        html += '<div class="flex items-center gap-1">';
+        html += `<div class="w-12 shrink-0 text-xs font-bold text-slate-700">${weekdays[w]}</div>`;
+
+        for (let h = 0; h < 24; h++) {
+          const val = matrix[w][h];
+          let bg = "bg-slate-100/70 border border-slate-200/40";
+          if (val > 0) {
+            const ratio = maxCount > 0 ? (val / maxCount) : 0;
+            if (ratio < 0.25) bg = "bg-emerald-200 text-emerald-950 font-semibold";
+            else if (ratio < 0.6) bg = "bg-emerald-400 text-slate-900 font-bold";
+            else bg = "bg-emerald-600 text-white font-bold shadow-xs";
+          }
+
+          const tip = `${weekdays[w]} ${h}:00 ~ ${h + 1}:00：共活跃 ${val} 次`;
+          html += `
+            <div class="flex-1 h-6 rounded-md ${bg} flex items-center justify-center text-[9px] font-mono transition hover:scale-115 cursor-pointer"
+                 title="${tip}">
+              ${val > 0 ? val : ''}
+            </div>
+          `;
+        }
+        html += '</div>';
+      }
+
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function renderHeatmapMatrix(dates, users) {
+      const container = document.getElementById("globalMatrixContainer");
+      if (!users || users.length === 0) {
+        container.innerHTML = '<div class="py-6 text-center text-xs text-slate-400">暂无普通用户活跃数据</div>';
+        return;
+      }
+
+      let html = '<div class="flex flex-col gap-1.5 select-none">';
+      html += '<div class="flex items-center gap-1 pb-2 border-b border-slate-100 text-[10px] font-mono text-slate-400 font-bold">';
+      html += '<div class="w-24 shrink-0 text-slate-700">用户名</div>';
+      dates.forEach(d => {
+        html += `<div class="flex-1 text-center truncate">${d.date.slice(5)}</div>`;
+      });
+      html += '<div class="w-14 text-right shrink-0">累计</div>';
+      html += '</div>';
+
+      users.forEach(u => {
+        html += '<div class="flex items-center gap-1 py-1 hover:bg-slate-50/80 rounded-xl transition">';
+        html += `<div class="w-24 shrink-0 font-bold text-xs text-slate-800 truncate" title="${u.username}">${u.username}</div>`;
+
+        dates.forEach(d => {
+          const count = u.daily[d.date] || 0;
+          let color = "bg-slate-100 border border-slate-200/40";
+          if (count >= 5) color = "bg-emerald-600 text-white font-bold";
+          else if (count >= 2) color = "bg-emerald-400 text-slate-900 font-semibold";
+          else if (count >= 1) color = "bg-emerald-200 text-emerald-950";
+
+          const tip = `${u.username} 在 ${d.date} 活跃 ${count} 次`;
+
+          html += `
+            <div class="flex-1 h-6 rounded-md ${color} flex items-center justify-center text-[9px] font-mono cursor-pointer transition hover:scale-115" title="${tip}">
+              ${count > 0 ? count : ''}
+            </div>
+          `;
+        });
+
+        html += `<div class="w-14 text-right shrink-0 font-mono font-bold text-xs text-emerald-700">${u.total_acts}</div>`;
+        html += '</div>';
+      });
+
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function renderActionBreakdown(breakdown) {
+      const container = document.getElementById("actionBreakdownContainer");
+      if (!breakdown) return;
+
+      const labels = {
+        add: { name: "食材录入入库", color: "bg-emerald-500", text: "text-emerald-700" },
+        consume: { name: "做菜消耗核减", color: "bg-teal-500", text: "text-teal-700" },
+        collect: { name: "菜谱收藏加星", color: "bg-amber-400", text: "text-amber-700" },
+        post: { name: "社区打卡发帖", color: "bg-emerald-600", text: "text-emerald-800" },
+        like: { name: "点赞互动", color: "bg-rose-400", text: "text-rose-700" },
+        comment: { name: "评论留言", color: "bg-cyan-500", text: "text-cyan-700" },
+        other: { name: "其他操作", color: "bg-slate-300", text: "text-slate-600" }
+      };
+
+      const total = Object.values(breakdown).reduce((acc, v) => acc + v, 0) || 1;
+
+      container.innerHTML = Object.entries(breakdown).map(([key, count]) => {
+        const item = labels[key] || labels.other;
+        const pct = Math.round((count / total) * 100);
+        return `
+          <div class="space-y-1">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-700">${item.name}</span>
+              <span class="font-mono text-[11px] ${item.text} font-bold">${count} 次 (${pct}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div class="h-full ${item.color} rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 3. 举报工单处理台
+    window.loadAdminReports = async function() {
+      const status = document.getElementById("reportFilterStatus").value;
+      const container = document.getElementById("reportsGridContainer");
+      container.innerHTML = '<div class="col-span-2 py-8 text-center text-xs text-slate-400">正在获取违规反馈工单...</div>';
+
+      try {
+        const reports = await Api.adminGetReports(status);
+        window.currentReportsCache = reports || [];
+
+        if (!reports.length) {
+          container.innerHTML = '<div class="col-span-2 py-8 text-center text-xs text-slate-400">暂无相关举报，社区内容健康合规。</div>';
+          return;
+        }
+
+        container.innerHTML = reports.map(r => `
+          <div class="bg-white p-5 rounded-3xl border ${r.status === 'pending' ? 'border-rose-300 shadow-md' : 'border-slate-200'} space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'pending' ? 'bg-rose-100 text-rose-700' : (r.status === 'approved' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-800')}">
+                ${r.status === 'pending' ? '待审核' : (r.status === 'approved' ? '已下架/处置' : '已驳回')}
+              </span>
+              <span class="text-[11px] text-slate-400">${r.created_at}</span>
+            </div>
+
+            <div class="flex gap-3 cursor-pointer group" onclick="openPostReportDetailModal(${r.post_id})">
+              <img src="${r.post_image}" class="w-20 h-20 object-cover rounded-xl border border-slate-100 shrink-0 group-hover:opacity-90 transition" />
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-xs text-slate-900 truncate group-hover:text-emerald-700 transition flex items-center justify-between">
+                  <span>${r.post_title}</span>
+                  <span class="text-[10px] text-emerald-700 font-normal">点击查阅详情 ➔</span>
+                </h4>
+                <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">${r.post_content}</p>
+
+                <div class="mt-2 text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2.5 py-1.5 rounded-xl flex items-center justify-between">
+                  <span class="truncate pr-1">举报人：<strong class="underline hover:text-emerald-950">${r.reporters_display}</strong></span>
+                  <span class="shrink-0 text-[10px] px-2 py-0.5 bg-white border border-emerald-200 rounded-lg text-emerald-700 shadow-2xs">共 ${r.total_reporters_count} 人反馈</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-slate-400 flex justify-between items-center pt-2 border-t border-slate-50">
+              <button onclick="openPostReportDetailModal(${r.post_id})" class="text-xs text-emerald-700 font-bold hover:underline">
+                🔍 点击查看帖子与举报明细
+              </button>
+              ${r.status === 'pending' ? `
+                <div class="flex gap-1.5">
+                  <button onclick="handleReportAction(${r.id}, 'reject')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition">驳回并公开</button>
+                  <button onclick="handleReportAction(${r.id}, 'approve_hide')" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition shadow-xs">屏蔽下架</button>
+                </div>
+              ` : `<span>批注: ${r.admin_note || '已结单'}</span>`}
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="col-span-2 py-6 text-center text-xs text-rose-500">${err.message}</div>`;
+      }
+    };
+
+    window.openPostReportDetailModal = function(postId) {
+      const group = (window.currentReportsCache || []).find(item => item.post_id === postId);
+      if (!group) return;
+
+      const bodyEl = document.getElementById("postReportDetailBody");
+      const btnsEl = document.getElementById("postReportDetailActionBtns");
+
+      const reportersHtml = (group.reporters_list || []).map((r, idx) => `
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1 text-xs">
+          <div class="flex justify-between items-center font-bold text-slate-800">
+            <span class="flex items-center gap-1.5"><span>👤 举报人 ${idx + 1}：</span> <strong class="text-emerald-800">${r.reporter_name}</strong></span>
+            <span class="text-[10px] text-slate-400 font-normal font-mono">${r.created_at}</span>
+          </div>
+          <div class="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded w-fit mt-1">
+            违规分类：【${r.reason_text}】
+          </div>
+          <p class="text-[11px] text-slate-600 mt-1 pl-1 border-l-2 border-slate-300">举报陈述说明：${r.detail}</p>
+        </div>
+      `).join('');
+
+      bodyEl.innerHTML = `
+        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+          <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <span>📝</span> 被举报帖子原始内容
+          </span>
+          <div class="flex gap-4">
+            <img src="${group.post_image}" class="w-32 h-32 object-cover rounded-2xl border border-slate-200 shadow-sm shrink-0" />
+            <div class="space-y-1.5 flex-1 min-w-0">
+              <h4 class="font-bold text-sm text-slate-900">${group.post_title}</h4>
+              <p class="text-xs text-slate-600 leading-relaxed max-h-24 overflow-y-auto custom-scrollbar whitespace-pre-wrap">${group.post_content}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <span>📋</span> 该帖收到的所有食友举报记录 (共 ${group.total_reporters_count} 条)
+            </span>
+          </div>
+          <div class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+            ${reportersHtml}
+          </div>
+        </div>
+      `;
+
+      if (group.status === 'pending') {
+        btnsEl.innerHTML = `
+          <button onclick="handleReportAction(${group.id}, 'reject'); document.getElementById('postReportDetailModal').classList.add('hidden');" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+            驳回举报并公开
+          </button>
+          <button onclick="handleReportAction(${group.id}, 'approve_hide'); document.getElementById('postReportDetailModal').classList.add('hidden');" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition shadow-xs">
+            违规屏蔽下架
+          </button>
+        `;
+      } else {
+        btnsEl.innerHTML = `<span class="text-xs text-slate-400">该工单已处理 (批注: ${group.admin_note || '已结单'})</span>`;
+      }
+
+      document.getElementById("postReportDetailModal").classList.remove("hidden");
+    };
+
+    window.handleReportAction = async function(reportId, action) {
+      const actionName = action === 'reject' ? '驳回举报并公开' : '屏蔽下架';
+      const defaultPrompt = action === 'reject' ? '内容合规，驳回举报并公开展示' : '经核实含有违规内容，予以屏蔽下架';
+
+      const note = prompt(`确定要对该帖子执行【${actionName}】操作吗？\n请输入处理批注 (点击“取消”将放弃本次操作):`, defaultPrompt);
+
+      if (note === null) {
+        return;
+      }
+
+      try {
+        const res = await Api.adminHandleReport(reportId, {
+          action: action,
+          admin_note: note.trim() || defaultPrompt
+        });
+        alert(`✅ ${res.message}`);
+        await loadAdminReports();
+      } catch (err) {
+        alert(err.message || "处置失败");
+      }
+    };
+
+    // 4. 用户行为审计日志流水
+    window.loadAdminAuditLogs = async function() {
+      const days = document.getElementById("auditDaysSelect").value;
+      const type = document.getElementById("auditTypeSelect").value;
+      const tbody = document.getElementById("auditLogsTableBody");
+      tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400">检索日志流水中...</td></tr>`;
+
+      try {
+        const logs = await Api.adminGetAuditLogs({ days, activity_type: type, page: 1, page_size: 50 });
+        if (!logs.length) {
+          tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-400">该时段内暂无操作日志记录</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = logs.map(l => `
+          <tr class="hover:bg-slate-50/80">
+            <td class="py-3 px-4 text-slate-400 whitespace-nowrap">${l.created_at}</td>
+            <td class="py-3 px-4 font-bold text-slate-800">${l.username} (UID:${l.user_id})</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">${l.activity_name}</span>
+            </td>
+            <td class="py-3 px-4 text-slate-600">${l.note}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-rose-500">${err.message}</td></tr>`;
+      }
+    };
+
+    // 5. 官方标准图库管理
+    window.loadAdminFoodImages = async function() {
+      const container = document.getElementById("foodImagesGridContainer");
+      container.innerHTML = '<div class="col-span-full py-8 text-center text-xs text-slate-400">加载标准图库中...</div>';
+
+      try {
+        const list = await Api.getAdminStandardImages();
+        if (!list.length) {
+          container.innerHTML = '<div class="col-span-full py-8 text-center text-xs text-slate-400">图库为空，点击右上角收录新标准食材！</div>';
+          return;
+        }
+
+        container.innerHTML = list.map(item => `
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+            <div>
+              <img src="${item.image_url}" class="w-full h-24 object-cover rounded-xl border border-slate-100 mb-2" />
+              <h4 class="font-bold text-xs text-slate-900">${item.food_name}</h4>
+              <p class="text-[10px] text-slate-400 truncate mt-0.5">别名: ${item.synonyms || '无'}</p>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 flex justify-between items-center">
+              <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${item.category}</span>
+              <button onclick="deleteFoodImage(${item.id}, '${item.food_name}')" class="text-xs text-red-500 hover:text-red-700">删除</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="col-span-full py-6 text-center text-xs text-rose-500">${err.message}</div>`;
+      }
+    };
+
+    window.openCreateFoodImageModal = () => document.getElementById("createFoodImageModal").classList.remove("hidden");
+
+    window.submitCreateFoodImage = async function(e) {
+      e.preventDefault();
+      const food_name = document.getElementById("stdFoodName").value.trim();
+      const synonyms = document.getElementById("stdSynonyms").value.trim();
+      const category = document.getElementById("stdCategory").value;
+      const fileInput = document.getElementById("stdImageFileInput");
+
+      if (!food_name || !fileInput.files.length) return alert("请填写食材名并选择图片！");
+
+      const btn = document.getElementById("btnSubmitStdImg");
+      btn.disabled = true;
+      btn.textContent = "上传保存中...";
+
+      try {
+        const fd = new FormData();
+        fd.append("file", fileInput.files[0]);
+        const uploadData = await Api.uploadAdminStandardFile(fd);
+
+        const res = await Api.createAdminStandardImage({
+          food_name,
+          synonyms,
+          category,
+          image_url: uploadData.image_url
+        });
+
+        alert(`🎉 ${res.message || "收录成功"}`);
+        document.getElementById("createFoodImageModal").classList.add("hidden");
+        document.getElementById("stdFoodName").value = "";
+        document.getElementById("stdSynonyms").value = "";
+        fileInput.value = "";
+        await loadAdminFoodImages();
+      } catch (err) {
+        alert(err.message || "上传录入异常");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "上传并录入图库";
+      }
+    };
+
+    window.deleteFoodImage = async function(id, name) {
+      if (!confirm(`确定从标准图库中删除「${name}」吗？`)) return;
+      try {
+        const res = await Api.deleteAdminStandardImage(id);
+        alert(res.message || "删除成功");
+        await loadAdminFoodImages();
+      } catch (err) {
+        alert("删除失败");
+      }
+    };
+
+    // 新建系统账号
+    window.openCreateUserModal = function() {
+      document.getElementById("newUsername").value = "";
+      document.getElementById("newPassword").value = "";
+      document.getElementById("createUserModal").classList.remove("hidden");
+    };
+
+    window.submitCreateUser = async function() {
+      const u = document.getElementById("newUsername").value.trim();
+      const p = document.getElementById("newPassword").value.trim();
+      const role = document.getElementById("newRole").value;
+
+      if (!u || !p) return alert("请填写完整账号与密码");
+      if (u.length < 2 || p.length < 4) return alert("账号至少2位，密码至少4位");
+
+      try {
+        const res = await Api.adminCreateUser({ username: u, password: p, role });
+        if (res.id) {
+          alert(`🎉 ${res.message}`);
+          document.getElementById("createUserModal").classList.add("hidden");
+          await loadAdminUsers();
+        } else {
+          alert(`⚠️ ${res.detail || "创建失败"}`);
+        }
+      } catch (e) {
+        alert(e.message || "请求异常");
+      }
+    };
+
+    // 重置密码
+    window.openResetPasswordModal = function(userId, username) {
+      targetResetUserId = userId;
+      document.getElementById("resetPwdTitle").textContent = `重置「${username}」的密码`;
+      document.getElementById("resetNewPassword").value = "";
+      document.getElementById("resetPwdModal").classList.remove("hidden");
+    };
+
+    window.submitResetPassword = async function() {
+      const p = document.getElementById("resetNewPassword").value.trim();
+      if (!p || p.length < 4) return alert("新密码至少4位");
+
+      try {
+        const res = await Api.adminResetPassword(targetResetUserId, p);
+        if (res.message) {
+          alert(`✅ ${res.message}`);
+          document.getElementById("resetPwdModal").classList.add("hidden");
+        } else {
+          alert(`⚠️ ${res.detail || "修改失败"}`);
+        }
+      } catch (e) {
+        alert(e.message || "请求异常");
+      }
+    };
+
+    // 级联删除账号
+    window.deleteUser = async function(userId, username) {
+      if (!confirm(`【高危级联清除警告】\n\n确定彻底删除账号「${username}」吗？\n该用户存放在数据库中的所有冰箱食材、自创菜谱、备菜清单将【被物理级联完全清空】！`)) {
+        return;
+      }
+      try {
+        const res = await Api.adminDeleteUser(userId);
+        if (res.message) {
+          alert(`✅ ${res.message}`);
+          await loadAdminUsers();
+        } else {
+          alert(`⚠️ ${res.detail || "删除失败"}`);
+        }
+      } catch (e) {
+        alert("删除失败");
+      }
+    };
+  </script>
+</body>
+</html>

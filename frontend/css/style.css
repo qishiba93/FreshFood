@@ -1,0 +1,81 @@
+/* 自定义极细拟物拉动条 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.9);
+}
+
+/* 原版 3D 透视舞台 */
+.fridge-viewport {
+  perspective: 1800px;
+  perspective-origin: 30% 50%;
+}
+
+/* 冰箱门板 3D 旋转铰链 */
+.fridge-door-leaf {
+  transform-origin: left center;
+  transition: transform 0.85s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.85s ease;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* 门打开状态：优雅旋转 -105 度 */
+.door-opened {
+  transform: rotateY(-105deg);
+  box-shadow: -22px 12px 40px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+/* 需求 2: 全新半透明透视磨砂门 (关门时微透视内部食材) */
+.glass-door-leaf {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(241, 245, 249, 0.4) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), inset 0 0 15px rgba(255, 255, 255, 0.7);
+}
+
+/* 内胆冷白光照明 */
+.chamber-glow-upper {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: inset 0 0 35px rgba(56, 189, 248, 0.08);
+}
+.chamber-glow-lower {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: inset 0 0 35px rgba(129, 140, 248, 0.08);
+}
+
+/* 需求 3: 过期强提示红色危险警示条纹 */
+.expired-danger-stripes {
+  background-color: #fee2e2 !important;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 8px,
+    rgba(239, 68, 68, 0.15) 8px,
+    rgba(239, 68, 68, 0.15) 16px
+  );
+  border: 2px solid #ef4444 !important;
+}
+
+/* 呼吸灯与指示灯效果 */
+@keyframes breathing-warning {
+  0%, 100% { box-shadow: 0 0 4px rgba(245, 158, 11, 0.4); border-color: rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 14px rgba(245, 158, 11, 0.9); border-color: rgba(245, 158, 11, 0.9); }
+}
+.light-warning-glow { animation: breathing-warning 1.2s infinite; }
+
+@keyframes rapid-danger-flash {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; box-shadow: 0 0 16px #ef4444; border-color: #ef4444; }
+}
+.light-danger-glow { animation: rapid-danger-flash 0.5s steps(2, start) infinite; }

@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full bg-slate-100">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>智鲜厨房 OS - 智能管理系统</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/fridge-3d.css">
+  <script type="importmap">
+    { "imports": { "three": "/js/vendor/three/three.module.min.js" } }
+  </script>
+  <script defer src="/js/vendor/lucide/lucide.min.js"></script>
+</head>
+
+<body class="h-full flex text-slate-800 antialiased bg-slate-100 select-none overflow-hidden">
+
+  <div id="appContainer" class="w-full h-full flex">
+    <!-- ================= 左侧主导航栏 ================= -->
+    <aside class="w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between p-5 shrink-0 shadow-sm z-40">
+      <div>
+        <div class="flex items-center space-x-3 mb-6 px-2">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-emerald-200">
+            🧊
+          </div>
+          <div>
+            <h1 class="text-base font-bold text-slate-900 tracking-tight">智鲜厨房 OS</h1>
+            <p class="text-[11px] text-emerald-700 font-bold mt-0.5">全场景精准健康厨房</p>
+          </div>
+        </div>
+
+        <nav class="space-y-1.5">
+          <!-- 核心独立大页面视图切换 -->
+          <button id="navBtnFridge" onclick="ensureAuth(() => switchMainView('fridge'))" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-bold text-emerald-800 bg-emerald-50 transition border border-emerald-200 shadow-2xs">
+            <span class="text-lg">🧊</span>
+            <span>我的双门冰箱</span>
+          </button>
+
+          <button id="navBtnChat" onclick="ensureAuth(() => switchMainView('chat'))" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition">
+            <span class="text-lg">🤖</span>
+            <span>AI 智能主厨对话</span>
+          </button>
+
+          <button id="navBtnCommunity" onclick="ensureAuth(() => switchMainView('community'))" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition">
+            <span class="text-lg">🍽️</span>
+            <span>美食生活社区</span>
+          </button>
+
+          <button id="navBtnCarbon" onclick="ensureAuth(() => switchMainView('carbon'))" class="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition">
+            <span class="text-lg">🌱</span>
+            <span>减碳周榜 (Top 20)</span>
+          </button>
+
+          <div class="pt-2 pb-1">
+            <div class="border-t border-slate-100"></div>
+          </div>
+
+          <!-- 便捷工具弹窗入口 -->
+          <button onclick="ensureAuth(() => openModal('uploadModal'))" class="w-full flex items-center space-x-3 px-4 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition text-xs">
+            <span class="text-base">📸</span>
+            <span>拍照 / 录入生鲜</span>
+          </button>
+
+          <button onclick="ensureAuth(() => openSpecialRecipeModal())" class="w-full flex items-center space-x-3 px-4 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition text-xs">
+            <span class="text-base">🥗</span>
+            <span>营养健康定制膳食</span>
+          </button>
+
+          <button onclick="ensureAuth(() => openTodayEatModal())" class="w-full flex items-center space-x-3 px-4 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition text-xs">
+            <span class="text-base">🎲</span>
+            <span>今日吃啥 (双菜谱)</span>
+          </button>
+
+          <button onclick="ensureAuth(() => openShoppingListModal())" class="w-full flex items-center justify-between px-4 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition text-xs">
+            <div class="flex items-center space-x-3">
+              <span class="text-base">🛒</span>
+              <span>备菜清单</span>
+            </div>
+            <span id="shoppingBadge" class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">0</span>
+          </button>
+
+          <button onclick="ensureAuth(() => openFavoritesModal())" class="w-full flex items-center space-x-3 px-4 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition text-xs">
+            <span class="text-base">⭐</span>
+            <span>已收藏菜谱</span>
+          </button>
+
+          <button onclick="ensureAuth(() => openHealthProfileModal())" class="w-full flex items-center space-x-3 px-4 py-2 rounded-xl font-medium text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition text-xs">
+            <span class="text-base">🩺</span>
+            <span>家庭健康状况档案</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- 用户状态栏 -->
+      <div class="space-y-2">
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span id="currentUserName" class="font-bold text-slate-800 truncate text-xs">未登录</span>
+            <span id="userRoleBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-bold">用户空间</span>
+          </div>
+          <button id="authActionBtn" onclick="openAuthModal()" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1">
+            <span>🔑</span> <span>登录 / 注册</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ================= 主体多页面渲染区 ================= -->
+    <main class="flex-1 overflow-y-auto h-screen p-8 flex flex-col items-center custom-scrollbar">
+
+      <!-- 视图 1：我的双门冰箱 (主视图) -->
+      <div id="viewFridge" class="w-full max-w-5xl flex flex-col items-center">
+        <header class="fridge-page-header">
+          <div><p class="fridge-eyebrow">FRESHPLATE OS</p><h2>我的双门冰箱</h2></div>
+          <button type="button" class="fridge-add-button" onclick="ensureAuth(() => openModal('uploadModal'))"><i data-lucide="plus" aria-hidden="true"></i>录入食材</button>
+        </header>
+
+        <div class="fridge-legend w-full flex items-center justify-between mb-4 px-2">
+          <div class="flex items-center gap-2 text-xs text-slate-500">
+            <span>保质期预警：</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> >2天</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> 1-2天</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> &lt;1天</span>
+            <span class="flex items-center gap-1 font-bold text-red-600"><span class="w-2 h-2 rounded-full bg-red-600"></span> 已过期</span>
+          </div>
+          <span id="fridgeRenderStatus" class="text-xs text-slate-400" role="status"></span>
+        </div>
+
+        <div class="fridge-workspace">
+          <section id="fridge3DSection" class="fridge-scene-section" hidden aria-label="三维双门冰箱">
+            <div class="fridge-scene-heading"><span><span class="fridge-live-dot"></span>FreshPlate</span><span class="fridge-model-label">拖动旋转 · 鼠标悬停实时查看保质期</span></div>
+            <div id="fridge3DCanvas" class="fridge-canvas"></div>
+
+            <!-- 3D 控制栏 (包含左右、上下平移与缩放) -->
+            <div class="fridge-scene-controls">
+              <div class="fridge-door-controls" aria-label="冰箱门控制">
+                <button type="button" id="toggleUpper3D" aria-pressed="false"><i data-lucide="door-closed" aria-hidden="true"></i><span>冷藏门</span><span class="fridge-temp">4°C</span></button>
+                <button type="button" id="toggleLower3D" aria-pressed="false"><i data-lucide="door-closed" aria-hidden="true"></i><span>冷冻门</span><span class="fridge-temp">−18°C</span></button>
+              </div>
+
+              <div class="fridge-shelf-controls flex items-center gap-1" aria-label="温区层级快速对焦">
+                <button type="button" id="fridgeFocusTop" class="px-2.5 py-1 text-[11px] font-bold" title="对焦冷藏顶层">⬆️ 冷藏顶层</button>
+                <button type="button" id="fridgeFocusMid" class="px-2.5 py-1 text-[11px] font-bold" title="对焦冷藏中层">↔️ 居中全景</button>
+                <button type="button" id="fridgeFocusBottom" class="px-2.5 py-1 text-[11px] font-bold" title="对焦冷冻底层">⬇️ 冷冻底层</button>
+              </div>
+
+              <div class="fridge-view-controls" aria-label="三维视角微调">
+                <button type="button" id="fridgePanLeft" aria-label="视角左移" title="视角左移"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+                <button type="button" id="fridgePanRight" aria-label="视角右移" title="视角右移"><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+                <button type="button" id="fridgePanUp" aria-label="视角上移" title="视角上移"><i data-lucide="chevron-up" aria-hidden="true"></i></button>
+                <button type="button" id="fridgePanDown" aria-label="视角下移" title="视角下移"><i data-lucide="chevron-down" aria-hidden="true"></i></button>
+                <button type="button" id="fridgeZoomOut" aria-label="缩小" title="缩小"><i data-lucide="minus" aria-hidden="true"></i></button>
+                <button type="button" id="fridgeResetView" aria-label="还原视角" title="还原视角"><i data-lucide="rotate-ccw" aria-hidden="true"></i></button>
+                <button type="button" id="fridgeZoomIn" aria-label="放大" title="放大"><i data-lucide="plus" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <p id="fridgeDoorStatus" class="fridge-door-status" aria-live="polite">冷藏门已关闭 · 冷冻门已关闭</p>
+          </section>
+
+          <div class="fridge-viewport w-full max-w-4xl">
+            <div class="relative bg-slate-200/80 border-4 border-slate-300 rounded-3xl p-4 shadow-xl flex flex-col gap-4">
+              <!-- 上层保鲜 -->
+              <div class="relative w-full rounded-2xl overflow-visible">
+                <section class="chamber-glow-upper w-full border border-slate-200 rounded-2xl p-5 flex flex-col min-h-[360px] shadow-inner">
+                  <header class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+                    <div class="flex items-center space-x-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-md animate-pulse"></span>
+                      <h2 class="text-sm sm:text-base font-bold text-slate-800">上层 · 果蔬冷藏保鲜室 (4°C)</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span id="refrigCount" class="text-xs bg-cyan-50 text-cyan-700 px-2.5 py-1 rounded-full border border-cyan-200 font-semibold">0 件食品</span>
+                      <button type="button" id="closeUpperDoorBtn" class="text-xs bg-white hover:bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-300 shadow-sm">关门 ✕</button>
+                    </div>
+                  </header>
+                  <div id="refrigerationGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 h-[280px] overflow-y-auto pr-1.5 custom-scrollbar"></div>
+                </section>
+
+                <div id="upperDoorLeaf" class="fridge-door-leaf glass-door-leaf absolute inset-0 rounded-2xl p-6 flex flex-col justify-between cursor-pointer z-30">
+                  <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-ping"></span>
+                      <span class="text-[11px] tracking-widest text-slate-600 uppercase font-bold">FreshPlate · Inverter</span>
+                    </div>
+                    <span class="text-[10px] text-cyan-800 bg-white/80 px-2.5 py-1 rounded-full border border-white shadow-sm font-semibold">微透视视窗 · 点击拉开</span>
+                  </div>
+                  <div class="self-center w-full max-w-xs bg-white/85 border border-white/90 rounded-2xl p-3.5 shadow-md flex items-center justify-between backdrop-blur-sm">
+                    <div>
+                      <span class="text-[10px] text-slate-400 block font-medium">保鲜室温度</span>
+                      <strong class="text-2xl text-cyan-600 font-mono tracking-tight font-black">4.0°C</strong>
+                    </div>
+                    <div class="text-right">
+                      <span class="text-[10px] text-slate-400 block font-medium">湿度巡航</span>
+                      <span class="text-xs text-emerald-600 font-bold font-mono">65% RH</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between pt-2">
+                    <span class="text-xs text-slate-500 font-medium">👉 点击开启上层保鲜室</span>
+                    <div class="flex items-center gap-2 bg-white/80 border border-white rounded-xl py-2 px-3.5 shadow-md">
+                      <span class="text-xs font-bold text-cyan-700">拉开</span>
+                      <div class="w-1.5 h-10 bg-gradient-to-b from-slate-300 via-slate-100 to-slate-400 rounded-full shadow-inner"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="h-2 bg-slate-300 rounded-full my-[-6px] z-20 shadow-inner"></div>
+
+              <!-- 下层冷冻 -->
+              <div class="relative w-full rounded-2xl overflow-visible">
+                <section class="chamber-glow-lower w-full border border-slate-200 rounded-2xl p-5 flex flex-col min-h-[360px] shadow-inner">
+                  <header class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+                    <div class="flex items-center space-x-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-md animate-pulse"></span>
+                      <h2 class="text-sm sm:text-base font-bold text-slate-800">下层 · 深冷速冻储鲜室 (-18°C)</h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span id="freezerCount" class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full border border-indigo-200 font-semibold">0 件食品</span>
+                      <button type="button" id="closeLowerDoorBtn" class="text-xs bg-white hover:bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg border border-slate-300 shadow-sm">关门 ✕</button>
+                    </div>
+                  </header>
+                  <div id="freezerGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 h-[280px] overflow-y-auto pr-1.5 custom-scrollbar"></div>
+                </section>
+
+                <div id="lowerDoorLeaf" class="fridge-door-leaf glass-door-leaf absolute inset-0 rounded-2xl p-6 flex flex-col justify-between cursor-pointer z-30">
+                  <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                      <span class="text-[11px] tracking-widest text-slate-600 uppercase font-bold">Frost-Free Freezer</span>
+                    </div>
+                    <span class="text-[10px] text-indigo-800 bg-white/80 px-2.5 py-1 rounded-full border border-white shadow-sm font-semibold">微透视视窗 · 点击拉开</span>
+                  </div>
+                  <div class="self-center w-full max-w-xs bg-white/85 border border-white/90 rounded-2xl p-3.5 shadow-md flex items-center justify-between backdrop-blur-sm">
+                    <div>
+                      <span class="text-[10px] text-slate-400 block font-medium">速冻室温度</span>
+                      <strong class="text-2xl text-indigo-600 font-mono tracking-tight font-black">-18.0°C</strong>
+                    </div>
+                    <div class="text-right">
+                      <span class="text-[10px] text-slate-400 block font-medium">运行模式</span>
+                      <span class="text-xs text-cyan-600 font-bold">智能恒温</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between pt-2">
+                    <span class="text-xs text-slate-500 font-medium">👉 点击开启下层冷冻室</span>
+                    <div class="flex items-center gap-2 bg-white/80 border border-white rounded-xl py-2 px-3.5 shadow-md">
+                      <span class="text-xs font-bold text-indigo-700">拉开</span>
+                      <div class="w-1.5 h-10 bg-gradient-to-b from-slate-300 via-slate-100 to-slate-400 rounded-full shadow-inner"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 视图 2：全新独立大页面 · AI 厨房管家对话 -->
+      <div id="viewChat" class="hidden w-full max-w-4xl h-full flex flex-col justify-between space-y-4">
+        <header class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-emerald-200">
+              👨‍🍳
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <span>智鲜 AI 主厨管家</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">保姆级大厨精讲</span>
+              </h2>
+              <p class="text-[11px] text-slate-400 mt-0.5">专注食材保鲜、火候调味秘诀与智能意图调度</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="clearChatHistoryMemory()" class="px-3 py-1.5 bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 rounded-xl text-xs font-semibold transition">
+              🗑️ 清空记忆
+            </button>
+            <button onclick="switchMainView('fridge')" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+              <span>🧊</span> <span>返回冰箱</span>
+            </button>
+          </div>
+        </header>
+
+        <!-- 针对菜品深度精讲的上下文横幅 -->
+        <div id="chatContextBanner" class="hidden p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between shadow-2xs">
+          <div class="flex items-center gap-2 text-xs">
+            <span class="text-emerald-700 font-bold">📖 当前正针对菜品深度精讲：</span>
+            <strong id="chatContextRecipeTitle" class="text-slate-900 font-bold">《--》</strong>
+          </div>
+          <button onclick="returnFromDetailedRecipeChat()" class="px-3 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-2xs transition">
+            ← 返回原菜谱
+          </button>
+        </div>
+
+        <!-- 对话流容器 -->
+        <div id="chatMessagesStream" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/70 border border-slate-200 rounded-3xl custom-scrollbar min-h-[360px] max-h-[58vh]">
+          <div class="flex justify-start gap-3">
+            <div class="flex items-start gap-2.5 max-w-[85%]">
+              <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow-2xs">
+                👨‍🍳
+              </div>
+              <div class="p-3.5 bg-white border border-slate-200 rounded-2xl rounded-tl-xs shadow-2xs text-xs text-slate-800 leading-relaxed">
+                您好！我是您的专属五星级主厨与营养管家。<br/>
+                您可以向我请教任何菜品的<strong>超详细保姆级火候步骤、调汁比例与防翻车秘诀</strong>；<br/>
+                您还可以通过自然语言管理厨房，例如：<br/>
+                <span class="text-emerald-700 font-bold">“帮我把生抽加入备菜清单”</span>、<br/>
+                <span class="text-emerald-700 font-bold">“把西红柿从备菜清单删除”</span>、<br/>
+                <span class="text-emerald-700 font-bold">“我刚买回了 500 克牛腩和 300 克西兰花，帮我放进冰箱”</span>，我会为您自动入库并推导保存温区与保质期！
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 快捷提问小胶囊 -->
+        <div class="flex flex-wrap gap-2 px-1">
+          <button onclick="sendQuickChatPrompt('怎么判断油温是几成热？冒青烟是几成？')" class="px-3 py-1 bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-200 rounded-full text-[11px] font-medium transition shadow-2xs">
+            🌡️ 怎么判断油温是几成热？
+          </button>
+          <button onclick="sendQuickChatPrompt('炖牛肉怎么做到软烂入味、肉质不发柴？')" class="px-3 py-1 bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-200 rounded-full text-[11px] font-medium transition shadow-2xs">
+            🥩 炖牛肉怎么做到软烂不柴？
+          </button>
+          <button onclick="sendQuickChatPrompt('我买好了300克生菜和500克羊排，帮我放进冰箱')" class="px-3 py-1 bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-200 rounded-full text-[11px] font-medium transition shadow-2xs">
+            📦 买好生菜和羊排了，帮我放冰箱
+          </button>
+          <button onclick="sendQuickChatPrompt('把生抽从备菜清单里面删掉')" class="px-3 py-1 bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-200 rounded-full text-[11px] font-medium transition shadow-2xs">
+            🗑️ 把生抽从备菜清单删除
+          </button>
+        </div>
+
+        <!-- 底部输入框 -->
+        <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <input type="text" id="chatUserInput" placeholder="向大厨请教烹饪细节，或吩咐将食材加入备菜/放入冰箱..." class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500" />
+            <button onclick="sendUserChatMessage()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 shrink-0">
+              <span>🚀</span> <span>发送</span>
+            </button>
+          </div>
+          <span class="text-[10px] text-slate-400 pl-1">
+            * 领域安全守则：AI 主厨专注于食材烹饪、火候、备菜与库存调度。无关话题将礼貌拒答。
+          </span>
+        </div>
+      </div>
+
+      <!-- 视图 3：全新独立大页面 · 美食生活社区 -->
+      <div id="viewCommunity" class="hidden w-full max-w-5xl space-y-6">
+        <header class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span>🍽️</span> 美食生活社区 · 食友广场
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">食友大厨做菜打卡、心得体会交流与专属菜谱一键复刻</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openCreatePostModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+              <span>➕</span> <span>晒单打卡</span>
+            </button>
+            <button onclick="switchMainView('fridge')" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1">
+              <span>🧊</span> <span>返回冰箱</span>
+            </button>
+          </div>
+        </header>
+
+        <div id="communityPostsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+      </div>
+
+      <!-- 视图 4：全新独立大页面 · 厨房减碳周榜与生态账本 -->
+      <div id="viewCarbon" class="hidden w-full max-w-4xl space-y-6">
+        <header class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span>🌱</span> 厨房减碳周榜与生态账本
+            </h2>
+            <p id="carbonCycleDesc" class="text-xs text-slate-400 mt-1">每周一 00:00:00 动态自然周归零重置</p>
+          </div>
+          <button onclick="switchMainView('fridge')" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1">
+            <span>🧊</span> <span>返回冰箱</span>
+          </button>
+        </header>
+
+        <div class="grid grid-cols-3 gap-4">
+          <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs text-center">
+            <span class="text-xs text-slate-400 block font-medium">我的本周榜单名次</span>
+            <strong id="myCarbonRankText" class="text-2xl font-black text-emerald-700 mt-1 block font-mono">-</strong>
+            <span class="text-[10px] text-slate-400 block mt-0.5">全站食友激烈角逐中</span>
+          </div>
+          <div class="bg-white p-5 rounded-3xl border border-emerald-200 shadow-2xs text-center bg-emerald-50/40">
+            <span class="text-xs text-emerald-700 block font-bold">本周避免食物浪费减碳</span>
+            <strong id="myCarbonKgText" class="text-2xl font-black text-emerald-800 mt-1 block font-mono">0 kg</strong>
+            <span class="text-[10px] text-emerald-600 block mt-0.5">以碳中和 LCA 模型实时推算</span>
+          </div>
+          <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-2xs text-center">
+            <span class="text-xs text-slate-400 block font-medium">折合生态效益</span>
+            <strong id="myCarbonTreesText" class="text-2xl font-black text-teal-700 mt-1 block font-mono">0 天</strong>
+            <span class="text-[10px] text-slate-400 block mt-0.5">相当于成年树木日吸收量</span>
+          </div>
+        </div>
+
+        <section class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+          <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <span>🏆</span> 本周环保烹饪先锋 Top 20
+            </h3>
+            <span class="text-xs text-slate-400">实时动态积分</span>
+          </div>
+          <div id="carbonLeaderboardContainer" class="space-y-2.5"></div>
+        </section>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ================= 弹窗集合 ================= -->
+
+  <!-- 置顶批量食材核减弹窗 -->
+  <div id="batchDeductModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[85vh] border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-base text-slate-900 flex items-center gap-1.5">
+            <span>🍳</span> 核对在库食材实际消耗量
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">算法已自动对齐匹配库存并核算减碳</p>
+        </div>
+        <button onclick="closeModal('batchDeductModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div id="batchDeductList" class="my-4 space-y-3 overflow-y-auto max-h-[50vh] pr-1 custom-scrollbar"></div>
+
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+        <span class="text-[11px] text-red-500 font-medium">* 消耗严禁超过当前库存</span>
+        <button onclick="confirmBatchDeduct()" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs shadow-lg transition">
+          确认扣减并同步库存
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登录 / 注册模态弹窗 -->
+  <div id="authModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-7 shadow-2xl flex flex-col border border-slate-100">
+      <div class="text-center pb-4 border-b border-slate-100">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-2xl mx-auto mb-2 shadow-lg shadow-emerald-200">
+          🧊
+        </div>
+        <h3 id="authModalTitle" class="font-bold text-lg text-slate-900">账号登录</h3>
+      </div>
+
+      <div class="flex bg-slate-100 p-1 rounded-2xl mt-4">
+        <button id="tabBtnLogin" onclick="switchAuthMode('login')" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition bg-white text-slate-800 shadow-sm">
+          登录
+        </button>
+        <button id="tabBtnRegister" onclick="switchAuthMode('register')" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition text-slate-500 hover:text-slate-800">
+          注册新账号
+        </button>
+      </div>
+
+      <div class="mt-4 space-y-3.5">
+        <div>
+          <label id="authUsernameLabel" class="block text-xs font-bold text-slate-600 mb-1">账号</label>
+          <input type="text" id="authUsername" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label id="authPasswordLabel" class="block text-xs font-bold text-slate-600 mb-1">密码</label>
+          <input type="password" id="authPassword" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <p id="authErrorTip" class="text-xs text-red-500 font-semibold min-h-[16px] text-center"></p>
+
+        <button id="authSubmitBtn" onclick="handleAuthSubmit()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md">
+          立即登录
+        </button>
+
+        <div class="text-center pt-1">
+          <button id="authSwitchTipBtn" onclick="toggleAuthMode()" class="text-xs text-slate-400 hover:text-emerald-700 transition">
+            还没有账号？点击注册新账号
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 录入食材弹窗 -->
+  <div id="uploadModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-hidden flex flex-col">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2"><span>📸</span> 录入/拍照生鲜食材</h3>
+        <button onclick="closeModal('uploadModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+      <form onsubmit="submitPantryItem(event)" class="mt-4 flex flex-col gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">食材照片 (支持自动识别)</label>
+          <input type="file" id="fileInput" accept="image/*" onchange="handleFoodImageSelect(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+        </div>
+
+        <div id="foodImagePreviewBox" class="hidden relative rounded-2xl overflow-hidden border border-slate-200 h-32 bg-slate-50">
+          <img id="foodImagePreviewImg" class="w-full h-full object-cover" />
+          <button type="button" onclick="clearFoodImage()" class="absolute top-2 right-2 px-2.5 py-1 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow">
+            ✕ 清除图片
+          </button>
+        </div>
+
+        <button type="button" id="btnRecognize" onclick="recognizePhoto()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-md">
+          <span>🤖</span> <span>开始多模态 AI 智能识别</span>
+        </button>
+
+        <div class="space-y-3 pt-2 border-t border-slate-100">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">食材通用名称</label>
+            <input type="text" id="foodNameInput" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">存放温区</label>
+              <select id="foodLayerSelect" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs">
+                <option value="refrigeration">上层 · 果蔬保鲜室</option>
+                <option value="freezer">下层 · 深冷速冻室</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">保质天数 (天)</label>
+              <input type="number" step="any" min="0.0001" id="shelfLifeInput" required value="3.0" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">称重重量</label>
+              <input type="number" id="foodWeightInput" required step="any" min="0.0001" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">单位</label>
+              <select id="foodUnitSelect" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold">
+                <option value="克">克 (g)</option>
+                <option value="斤">斤</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition shadow-lg mt-1">
+          确认保存并存入冰箱
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 单食材详情弹窗 -->
+  <div id="foodDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-xl p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100">
+        <div class="flex items-center space-x-3">
+          <div id="modalFoodImgSlot" class="w-12 h-12 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 flex items-center justify-center text-xl"></div>
+          <div>
+            <h3 id="modalFoodTitle" class="text-base font-bold text-slate-900">食材详情</h3>
+            <p id="modalFoodLocation" class="text-xs text-slate-400 mt-0.5">位置：--</p>
+          </div>
+        </div>
+        <button onclick="closeModal('foodDetailModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div class="mt-4 flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <span class="text-xs text-slate-400 block">当前库存剩余：</span>
+            <div class="mt-1 flex items-baseline gap-1">
+              <strong id="modalRemainingWeight" class="text-3xl font-mono text-emerald-600">0</strong>
+              <span id="modalWeightUnit" class="text-xs font-semibold text-slate-600">克</span>
+            </div>
+          </div>
+          <p id="modalExpiryText" class="text-xs text-slate-400">截止时间：--</p>
+        </div>
+
+        <div id="modalExpiredWarning" class="hidden p-4 rounded-2xl bg-red-50 border-2 border-red-500 text-red-700">
+          <div class="flex items-center space-x-2 font-bold text-base"><span>⚠️</span><span>该食材已过保质期！</span></div>
+          <p class="text-xs mt-1 text-red-600">为保障身体健康，系统已禁止为该食材规划菜谱，请立即清理丢弃。</p>
+          <button onclick="discardCurrentItem()" class="mt-3 w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-md transition">
+            立即丢弃并删除
+          </button>
+        </div>
+
+        <div id="normalAiStage" class="space-y-4">
+          <div class="border border-slate-200 rounded-2xl bg-slate-50/70 p-4 space-y-3.5">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/80">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span>🍳</span> DeepSeek 大厨菜谱参数定制
+              </span>
+              <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                已启用中西餐智能适配
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">用餐时段</label>
+                <select id="pantryRecipeMealTypeSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="dinner" selected>晚餐 (晚间透味正餐)</option>
+                  <option value="lunch">午餐 (家常高效正餐)</option>
+                  <option value="breakfast">早餐 (晨间轻快少油)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">烹饪耗时约束</label>
+                <select id="pantryRecipeCookingTimeSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-emerald-700 font-bold outline-none focus:ring-2 focus:ring-emerald-500">
+                  <option value="">自动推荐 (按餐别兜底)</option>
+                  <option value="under_10">小于10分钟 (极速快手)</option>
+                  <option value="10_to_20">10~20分钟 (火候适中)</option>
+                  <option value="over_20">20分钟以上 (细煨慢炖)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <div class="flex gap-2">
+                <div class="w-28 shrink-0">
+                  <label class="block text-[11px] font-bold text-slate-600 mb-1">菜系大类</label>
+                  <select id="pantryRecipeCuisineSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none">
+                    <option value="chinese" selected>中式风味</option>
+                    <option value="western">西式料理</option>
+                  </select>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <label class="block text-[11px] font-bold text-slate-600 mb-1">细分菜系 / 流派风味</label>
+                  <select id="pantryRecipeSubCuisineSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none"></select>
+                </div>
+              </div>
+              <div id="pantrySubCuisineDescCard" class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs min-h-[38px] flex items-center"></div>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="block text-[11px] font-bold text-slate-600">指定烹饪技法</label>
+              <select id="pantryRecipeCookingMethodSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-emerald-700 outline-none"></select>
+              <div id="pantryMethodDescCard" class="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200 shadow-2xs min-h-[38px] flex items-center"></div>
+            </div>
+
+            <div class="pt-1">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1.5">生成人数份量：</label>
+              <div class="flex items-center gap-2">
+                <button onclick="requestAIRecipe(1)" class="flex-1 py-2 bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold shadow-sm transition">1 人独享</button>
+                <button onclick="requestAIRecipe(2)" class="flex-1 py-2 bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold shadow-sm transition">2 人份</button>
+                <button onclick="requestAIRecipe(4)" class="flex-1 py-2 bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold shadow-sm transition">3-4 人份</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 生成结果展示卡片 -->
+          <div id="aiStageRecipeResult" class="hidden flex flex-col gap-3 border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4">
+            <div class="flex items-center justify-between pb-2 border-b border-emerald-100">
+              <div class="flex items-center gap-2">
+                <button id="btnPantryRecipeDetailedChat" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1">
+                  <span>🔍</span> <span>详细一点 · 大厨精讲</span>
+                </button>
+                <button id="btnSaveCurrentRecipeStar"></button>
+              </div>
+              <span id="aiRecipeDifficultyTag" class="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-semibold">初级</span>
+            </div>
+            <h4 id="aiRecipeTitle" class="font-bold text-base text-slate-900 mt-1">菜肴名称</h4>
+            <p id="aiRecipePantryMatch" class="text-xs text-emerald-700">搭配说明</p>
+            <p id="aiRecipeStaples" class="text-xs text-slate-500">常备调料</p>
+            <div class="mt-2">
+              <span class="text-xs font-bold text-slate-800">烹饪步骤：</span>
+              <div id="aiStepsList" class="flex flex-col gap-1 mt-1"></div>
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-800 mt-2">
+              💡 <span id="aiChefTipsText">技巧</span>
+            </div>
+            <div class="pt-3 border-t border-emerald-200 flex flex-col gap-2 mt-2">
+              <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5 w-44 bg-white border border-slate-200 rounded-xl px-3 py-1.5">
+                  <input type="number" id="usedWeightInput" step="any" min="0.0001" placeholder="仅扣主食材" class="w-full text-xs bg-transparent outline-none">
+                  <span id="deductUnitLabel" class="text-xs font-bold text-slate-600">克</span>
+                </div>
+                <button onclick="confirmDeductStock()" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition">
+                  仅扣减主食材
+                </button>
+              </div>
+              <button id="btnTriggerBatchDeduct" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5">
+                <span>🍳</span> <span>核对并扣减该菜谱用到的所有食材</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 特殊营养定制菜谱弹窗 -->
+  <div id="specialRecipeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900 flex items-center gap-1.5"><span>🥗</span> 营养健康定制膳食</h3>
+        <button onclick="closeModal('specialRecipeModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+        <button id="btnType_custom_health" onclick="switchSpecialType('custom_health')" class="py-2.5 px-2 rounded-xl border font-bold text-xs border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm col-span-2 sm:col-span-1">⭐ 特殊定制</button>
+        <button id="btnType_low_fat" onclick="switchSpecialType('low_fat')" class="py-2.5 px-2 rounded-xl border font-bold text-xs border-slate-200 text-slate-600 hover:bg-slate-50">🥦 低脂低卡</button>
+        <button id="btnType_diabetic" onclick="switchSpecialType('diabetic')" class="py-2.5 px-2 rounded-xl border font-bold text-xs border-slate-200 text-slate-600 hover:bg-slate-50">🩺 控糖稳糖</button>
+        <button id="btnType_gout" onclick="switchSpecialType('gout')" class="py-2.5 px-2 rounded-xl border font-bold text-xs border-slate-200 text-slate-600 hover:bg-slate-50">🍗 痛风少嘌呤</button>
+        <button id="btnType_goiter" onclick="switchSpecialType('goiter')" class="py-2.5 px-2 rounded-xl border font-bold text-xs border-slate-200 text-slate-600 hover:bg-slate-50">🥬 甲状腺调理</button>
+      </div>
+
+      <div id="customHealthPickerSection" class="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl mb-4 space-y-2">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-emerald-900">请勾选就餐成员：</span>
+          <span id="customHealthCalculatedPeople" class="text-xs font-bold text-emerald-700 font-mono">0 人份 (自动锁定)</span>
+        </div>
+        <div id="customHealthMembersPicker" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+      </div>
+
+      <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 mb-4">
+        <div class="grid grid-cols-3 gap-2.5">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">用餐时段</label>
+            <select id="specialRecipeMealTypeSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold">
+              <option value="dinner" selected>晚餐</option>
+              <option value="lunch">午餐</option>
+              <option value="breakfast">早餐</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">烹饪耗时</label>
+            <select id="specialRecipeCookingTimeSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-emerald-700 font-bold">
+              <option value="">自动推荐</option>
+              <option value="under_10">小于10分钟</option>
+              <option value="10_to_20">10~20分钟</option>
+              <option value="over_20">20分钟以上</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">用餐人数</label>
+            <select id="specialPeopleCount" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold">
+              <option value="1">1 人份</option>
+              <option value="2" selected>2 人份</option>
+              <option value="4">3-4 人份</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex gap-2">
+            <div class="w-28 shrink-0">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">菜系大类</label>
+              <select id="specialRecipeCuisineSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800">
+                <option value="chinese" selected>经典中餐</option>
+                <option value="western">精美西餐</option>
+              </select>
+            </div>
+            <div class="flex-1 min-w-0">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">细分风味流派</label>
+              <select id="specialRecipeSubCuisineSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold"></select>
+            </div>
+          </div>
+          <div id="specialSubCuisineDescCard" class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs min-h-[38px] flex items-center"></div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-[11px] font-bold text-slate-600">烹饪技法</label>
+          <select id="specialRecipeCookingMethodSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-emerald-700"></select>
+          <div id="specialMethodDescCard" class="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200 shadow-2xs min-h-[38px] flex items-center"></div>
+        </div>
+      </div>
+
+      <button onclick="fetchSpecialRecipe()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-md mb-4">
+        生成专属健康膳食方案
+      </button>
+
+      <div id="specialRecipeContent" class="hidden bg-slate-50 rounded-2xl p-4 border border-slate-200"></div>
+    </div>
+  </div>
+
+  <!-- 今日吃啥弹窗 (方案A/B已全面装配专属无参安全跳转) -->
+  <div id="todayEatModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-lg text-slate-900">🎲 今日吃啥 · 智能双轨推荐</h3>
+        <button onclick="closeModal('todayEatModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-4 space-y-3">
+        <div class="grid grid-cols-3 gap-2.5">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">用餐人数</label>
+            <select id="todayEatPeopleCount" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold">
+              <option value="1">1 人独享</option>
+              <option value="2" selected>2 人世界</option>
+              <option value="3">3 口之家</option>
+              <option value="4">4 人同享</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">用餐时段</label>
+            <select id="todayEatRecipeMealTypeSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold">
+              <option value="dinner" selected>晚餐</option>
+              <option value="lunch">午餐</option>
+              <option value="breakfast">早餐</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">烹饪耗时</label>
+            <select id="todayEatRecipeCookingTimeSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-emerald-700 font-bold">
+              <option value="">自动推荐</option>
+              <option value="under_10">小于10分钟</option>
+              <option value="10_to_20">10~20分钟</option>
+              <option value="over_20">20分钟以上</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex gap-2">
+            <div class="w-28 shrink-0">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">菜系风味</label>
+              <select id="todayEatRecipeCuisineSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800">
+                <option value="chinese" selected>地道中餐</option>
+                <option value="western">精致西餐</option>
+              </select>
+            </div>
+            <div class="flex-1 min-w-0">
+              <label class="block text-[11px] font-bold text-slate-600 mb-1">细分流派</label>
+              <select id="todayEatRecipeSubCuisineSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold"></select>
+            </div>
+          </div>
+          <div id="todayEatSubCuisineDescCard" class="p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs min-h-[38px] flex items-center"></div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block text-[11px] font-bold text-slate-600">烹饪方式</label>
+          <select id="todayEatRecipeCookingMethodSelect" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-emerald-700"></select>
+          <div id="todayEatMethodDescCard" class="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200 shadow-2xs min-h-[38px] flex items-center"></div>
+        </div>
+      </div>
+
+      <button onclick="fetchTodayEatRecipes()" class="w-full py-2.5 mb-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold shadow-md transition">
+        🎲 立即按条件智能规划双轨菜谱
+      </button>
+
+      <div id="todayEatCards" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- 方案 A -->
+        <div class="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+          <div>
+            <div class="flex justify-between items-start mb-2">
+              <span class="px-2.5 py-0.5 bg-emerald-600 text-white rounded-md text-[11px] font-bold">方案 A · 冰箱现有优先消灭</span>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="jumpTodayEatPlanAToChat()" class="px-2.5 py-1 bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg text-[11px] font-bold transition shadow-2xs">
+                  🔍 详细一点
+                </button>
+                <button id="btnSavePlanAStar"></button>
+              </div>
+            </div>
+            <h4 id="recipeAName" class="font-bold text-sm text-slate-800 mt-1">--</h4>
+            <p id="recipeADesc" class="text-xs text-slate-500 mt-0.5 italic">--</p>
+            <div class="mt-3"><h5 class="text-xs font-bold text-slate-700">所需食材：</h5><ul id="recipeAIngredients" class="text-xs text-slate-600 mt-1 list-disc list-inside"></ul></div>
+            <div class="mt-3"><h5 class="text-xs font-bold text-slate-700">步骤：</h5><ol id="recipeASteps" class="text-xs text-slate-600 mt-1 list-decimal list-inside"></ol></div>
+          </div>
+          <button onclick="triggerDeductForPlanA()" class="mt-4 w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition">
+            做完了，核算食材消耗并减碳
+          </button>
+        </div>
+
+        <!-- 方案 B -->
+        <div class="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+          <div>
+            <div class="flex justify-between items-start mb-2">
+              <span class="px-2.5 py-0.5 bg-amber-600 text-white rounded-md text-[11px] font-bold">方案 B · 尝鲜需买</span>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="jumpTodayEatPlanBToChat()" class="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-700 border border-amber-300 rounded-lg text-[11px] font-bold transition shadow-2xs">
+                  🔍 详细一点
+                </button>
+                <button id="btnSavePlanBStar"></button>
+              </div>
+            </div>
+            <h4 id="recipeBName" class="font-bold text-sm text-slate-800 mt-1">--</h4>
+            <p id="recipeBDesc" class="text-xs text-slate-500 mt-0.5 italic">--</p>
+            <div class="mt-3 p-2 bg-white rounded-xl border border-amber-200">
+              <h5 class="text-xs font-bold text-red-600">缺少食材：</h5><ul id="recipeBMissing" class="text-xs text-slate-700 mt-1 list-disc list-inside"></ul>
+            </div>
+            <div class="mt-3"><h5 class="text-xs font-bold text-slate-700">步骤：</h5><ol id="recipeBSteps" class="text-xs text-slate-600 mt-1 list-decimal list-inside"></ol></div>
+          </div>
+          <button onclick="addRecipeBToShoppingList()" class="mt-4 w-full py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow transition">
+            一键加入备菜清单
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 备菜清单抽屉 -->
+  <div id="shoppingListModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900">🛒 我的备菜采购篮</h3>
+        <button onclick="closeModal('shoppingListModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+      <div id="shoppingItemsContainer" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
+    </div>
+  </div>
+
+  <!-- 收藏菜谱抽屉 -->
+  <div id="favoritesModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900 flex items-center gap-2"><span>⭐</span> 我的菜谱收藏夹</h3>
+        <button onclick="closeModal('favoritesModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+      <div class="mb-3 relative">
+        <input type="text" id="favoriteSearchInput" oninput="filterFavorites(this.value)" placeholder="搜索菜谱名称或食材..." class="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 bg-slate-50/70 transition">
+        <span class="absolute left-3 top-2.5 text-xs text-slate-400 pointer-events-none">🔍</span>
+      </div>
+      <div id="favoritesContainer" class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar"></div>
+    </div>
+  </div>
+
+  <!-- 新注册健康引导弹窗 -->
+  <div id="onboardingHealthModal" class="hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+      <div class="text-center">
+        <span class="text-3xl">🩺</span>
+        <h3 class="text-base font-bold text-slate-900 mt-2">身体健康状况登记 (可跳过)</h3>
+        <p class="text-xs text-slate-500 mt-1">请直接填写您的身体状况、慢病或饮食忌口，AI 将在菜谱中为您主动避忌</p>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">健康状况 / 慢病标签：</label>
+        <textarea id="onboardingConditionsInput" rows="3" placeholder="例如：痛风尿酸偏高、二型糖尿病需控糖、容易腹泻不能吃生冷、海鲜过敏等 (多种情况逗号或空格隔开)" class="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" required></textarea>
+      </div>
+      <input type="text" id="onboardingNotesInput" placeholder="补充医嘱备忘 (选填，如: 正在喝中药避免食用白萝卜)" class="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" />
+      <div class="flex gap-2 pt-1">
+        <button onclick="skipOnboardingHealth()" class="flex-1 py-2.5 text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold">跳过，以后再填</button>
+        <button onclick="submitOnboardingHealth()" class="flex-1 py-2.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold shadow-sm">保存并开启厨房</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 家庭健康状况档案管理弹窗 -->
+  <div id="healthProfileModal" class="hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><span>👨‍👩‍👧‍👦</span> 家庭成员身体健康画像</h3>
+        <button onclick="closeModal('healthProfileModal')" class="text-slate-400 hover:text-slate-600 text-sm">✕</button>
+      </div>
+      <div id="healthProfilesListContainer" class="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar"></div>
+      <form onsubmit="addNewHealthProfile(event)" class="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
+        <div class="flex gap-2">
+          <input type="text" id="newMemberName" placeholder="称呼 (如: 爸爸、妈妈、宝宝)" class="flex-1 p-2 bg-white border border-slate-200 rounded-xl text-xs outline-none" required />
+          <select id="newMemberRelation" class="p-2 bg-white border border-slate-200 rounded-xl text-xs outline-none">
+            <option value="parent">长辈/父母</option>
+            <option value="spouse">伴侣</option>
+            <option value="child">孩子</option>
+            <option value="self">本人</option>
+            <option value="other">其他家人</option>
+          </select>
+        </div>
+        <input type="text" id="newMemberConditionInput" placeholder="直接输入该成员身体状况 (如: 高血压少盐、甲状腺调理、低脂控卡)" class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs outline-none" required />
+        <input type="text" id="newMemberNotes" placeholder="补充说明与忌口 (选填)" class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs outline-none" />
+        <button type="submit" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs">添加成员画像</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 帖子详情大弹窗 -->
+  <div id="postDetailModal" class="hidden fixed inset-0 z-[75] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl max-h-[90vh] flex flex-col space-y-3">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="text-sm font-bold text-slate-800">美食打卡与菜谱详情</h3>
+        <button onclick="closeModal('postDetailModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      </div>
+
+      <div id="postDetailContentContainer" class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar"></div>
+
+      <div class="pt-3 border-t border-slate-100 space-y-2">
+        <h5 class="text-xs font-bold text-slate-700">食友互动评论：</h5>
+        <div id="postDetailCommentsContainer" class="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar"></div>
+        <form onsubmit="submitDetailNewComment(event)" class="flex gap-2 pt-1">
+          <input type="hidden" id="activeDetailCommentPostId" />
+          <input type="text" id="newDetailCommentText" placeholder="给大厨留下一句走心赞美..." class="flex-1 text-xs p-2.5 bg-slate-50 border rounded-xl outline-none" required />
+          <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs">发送</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 发布打卡弹窗 -->
+  <div id="createCommunityPostModal" class="hidden fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h4 class="text-sm font-bold text-slate-800">发布美食打卡心得</h4>
+        <button onclick="closeModal('createCommunityPostModal')" class="text-slate-400 text-sm">✕</button>
+      </div>
+      <form onsubmit="submitCommunityPost(event)" class="space-y-3">
+        <input type="text" id="postTitleInput" placeholder="菜品名称 (如: 葱烧大虾)" class="w-full text-xs p-3 bg-slate-50 border rounded-xl outline-none" required />
+        <textarea id="postContentInput" rows="3" placeholder="分享这次的火候秘诀或烹饪心得..." class="w-full text-xs p-3 bg-slate-50 border rounded-xl outline-none" required></textarea>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">成品实拍照片：</label>
+          <input type="file" id="postImageInput" accept="image/*" onchange="handleCommunityImageSelect(event)" class="w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:bg-emerald-50 file:text-emerald-700" required />
+        </div>
+
+        <div id="communityImagePreviewBox" class="hidden relative rounded-2xl overflow-hidden border border-slate-200 h-32 bg-slate-50">
+          <img id="communityImagePreviewImg" class="w-full h-full object-cover" />
+          <button type="button" onclick="clearCommunityPostImage()" class="absolute top-2 right-2 px-2.5 py-1 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition shadow">
+            ✕ 清除图片
+          </button>
+        </div>
+
+        <button type="submit" id="btnSubmitPost" class="w-full py-3 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs">确认发布</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 举报内容弹窗 -->
+  <div id="reportPostModal" class="hidden fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+      <h4 class="text-sm font-bold text-rose-600 flex items-center gap-1.5"><span>⚠️</span> 违规内容举报</h4>
+      <form onsubmit="submitPostReport(event)" class="space-y-3">
+        <input type="hidden" id="reportTargetPostId" />
+        <select id="reportReasonSelect" class="w-full text-xs p-2.5 bg-slate-50 border rounded-xl outline-none">
+          <option value="violence">血腥暴力 / 令人不适</option>
+          <option value="porn">低俗色情</option>
+          <option value="spam">广告垃圾 / 虚假引流</option>
+          <option value="unrelated">与美食烹饪无关的内容</option>
+          <option value="other">其他违规</option>
+        </select>
+        <input type="text" id="reportDetailInput" placeholder="请简述举报原因 (选填)" class="w-full text-xs p-2.5 bg-slate-50 border rounded-xl outline-none" />
+        <div class="flex gap-2 pt-1">
+          <button type="button" onclick="closeModal('reportPostModal')" class="flex-1 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold">取消</button>
+          <button type="submit" class="flex-1 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold shadow-xs">提交举报</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
