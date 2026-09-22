@@ -1,6 +1,5 @@
 """Shared paths for bundled assets and runtime uploads."""
 import os
-import shutil
 from pathlib import Path
 
 
@@ -29,7 +28,7 @@ def _copy_seed_files(source: Path, target: Path) -> None:
         target_file = target / relative_path
         if not target_file.exists():
             target_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_file, target_file)
+            target_file.write_bytes(source_file.read_bytes())
 
 
 for directory in (UPLOAD_DIR, COMMUNITY_DIR, DEFAULTS_DIR, STANDARDS_DIR):

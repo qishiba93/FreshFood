@@ -84,6 +84,11 @@ app.include_router(chat.router)
 async def healthcheck():
     return {"status": "ok", "service": "freshfood"}
 
+
+@app.post("/invoke", include_in_schema=False)
+async def modelscope_healthcheck():
+    return {"status": "ok"}
+
 # 挂载全部静态文件目录
 app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 app.mount("/static/standards", StaticFiles(directory=str(STANDARDS_DIR)), name="standards")
