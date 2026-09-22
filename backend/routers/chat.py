@@ -23,7 +23,7 @@ from backend.services.food_image_service import resolve_food_image
 
 router = APIRouter(prefix="/api/chat", tags=["AI 智能厨房对话"])
 
-DEEPSEEK_API_KEY = os.getenv("AI_API_KEY") or os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL") or f"{os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com').rstrip('/')}/v1/chat/completions"
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 

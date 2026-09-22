@@ -18,6 +18,6 @@ docker run --rm -p 8000:8000 --env-file .env freshfood
 
 ## Render 部署
 
-仓库根目录的 `render.yaml` 会创建 Web 服务和 PostgreSQL 数据库。部署时在 Render 控制台填写 `AI_API_KEY` 与 `BOOTSTRAP_ADMIN_PASSWORD`，真实密钥不会进入 Git 仓库。
+仓库根目录的 `render.yaml` 会创建 Web 服务和 PostgreSQL 数据库。部署时在 Render 控制台分别填写 `DEEPSEEK_API_KEY`、`VISION_API_KEY` 与 `BOOTSTRAP_ADMIN_PASSWORD`，真实密钥不会进入 Git 仓库。
 
 用户上传文件默认保存在容器文件系统。生产环境如需永久保存上传图片，应为服务挂载持久磁盘，或接入对象存储。

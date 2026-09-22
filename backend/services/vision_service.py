@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 vision_client = AsyncOpenAI(
-    api_key=os.getenv("AI_API_KEY") or os.getenv("VISION_API_KEY"),
+    api_key=os.getenv("VISION_API_KEY"),
     base_url=os.getenv("VISION_BASE_URL", "https://api.deepseek.com")
 )
 VISION_MODEL = os.getenv("VISION_MODEL", "deepseek-flash")

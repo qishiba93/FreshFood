@@ -9,7 +9,9 @@ services:
         fromDatabase:
           name: freshfood-db
           property: connectionString
-      - key: AI_API_KEY
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: VISION_API_KEY
         sync: false
       - key: SECRET_KEY
         generateValue: true
