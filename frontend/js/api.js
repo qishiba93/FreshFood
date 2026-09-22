@@ -83,8 +83,8 @@ export const Api = {
   },
 
   async adminDeleteUser(userId) {
-    const res = await fetch(`/api/auth/admin/users/${userId}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/auth/admin/users/${userId}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);

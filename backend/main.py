@@ -5,6 +5,12 @@ FastAPI 核心入口应用 (全功能完整装配版)
 """
 import sys
 import os
+import time
+from datetime import datetime, timedelta
+
+os.environ.setdefault("TZ", "Asia/Shanghai")
+if hasattr(time, "tzset"):
+    time.tzset()
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
@@ -40,6 +46,27 @@ async def lifespan(app: FastAPI):
     # 服务启动时，安全确保全套数据库新表自动同步创建
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # The first Docker deployment used UTC before the runtime timezone was set.
+    # Correct only records from that known deployment window; the range makes
+    # this migration idempotent on later restarts.
+    if os.getenv("PERSISTENT_DATA_DIR", "").strip():
+        utc_window_start = datetime(2026, 9, 22, 0, 0, 0)
+        utc_window_end = datetime(2026, 9, 22, 8, 0, 0)
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(User).where(
+                    User.created_at >= utc_window_start,
+                    User.created_at < utc_window_end,
+                )
+            )
+            migrated_users = result.scalars().all()
+            for user in migrated_users:
+                user.created_at += timedelta(hours=8)
+                if user.updated_at and utc_window_start <= user.updated_at < utc_window_end:
+                    user.updated_at += timedelta(hours=8)
+            if migrated_users:
+                await session.commit()
 
     admin_username = os.getenv("BOOTSTRAP_ADMIN_USERNAME", "").strip()
     admin_password = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "").strip()

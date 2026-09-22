@@ -200,6 +200,7 @@ async def admin_reset_user_password(
 
 # 7. 管理员删除用户
 @router.delete("/admin/users/{user_id}")
+@router.post("/admin/users/{user_id}/delete")
 async def admin_delete_user(
     user_id: int,
     db: AsyncSession = Depends(get_db),

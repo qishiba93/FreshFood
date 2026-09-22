@@ -3,6 +3,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production \
+    TZ=Asia/Shanghai \
     PORT=7860 \
     PERSISTENT_DATA_DIR=/mnt/workspace/freshfood
 
