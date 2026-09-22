@@ -26,6 +26,7 @@ from backend.database import engine, Base
 from backend.database import AsyncSessionLocal
 from backend.auth import get_password_hash
 from backend.models import User
+from backend.seed_data import seed_demo_data
 from backend.storage import STANDARDS_DIR, UPLOAD_DIR
 # 引入全部业务路由群
 from backend.routers import (
@@ -81,6 +82,11 @@ async def lifespan(app: FastAPI):
                     status=1,
                 ))
                 await session.commit()
+
+    persistent_dir = os.getenv("PERSISTENT_DATA_DIR", "").strip()
+    if persistent_dir:
+        async with AsyncSessionLocal() as session:
+            await seed_demo_data(session, persistent_dir)
     yield
 
 app = FastAPI(title="智鲜厨房 OS - 全场景精准健康厨房", version="3.3.0", lifespan=lifespan)
