@@ -10,7 +10,7 @@ function getHeaders() {
   const token = localStorage.getItem('freshplate_token');
   const headers = { 'Content-Type': 'application/json' };
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers['X-FreshFood-Token'] = token;
   }
   return headers;
 }
@@ -127,7 +127,7 @@ export const Api = {
   async uploadAdminStandardFile(formData) {
     const token = localStorage.getItem('freshplate_token');
     const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers['X-FreshFood-Token'] = token;
     const res = await fetch('/api/admin/food-images/upload-file', {
       method: 'POST',
       headers: headers,
@@ -173,7 +173,7 @@ export const Api = {
   async recognizeFood(formData) {
     const token = localStorage.getItem('freshplate_token');
     const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers['X-FreshFood-Token'] = token;
     const res = await fetch('/api/pantry/recognize-food', {
       method: 'POST',
       headers: headers,
@@ -404,7 +404,7 @@ export const Api = {
   async uploadCommunityImage(formData) {
     const token = localStorage.getItem('freshplate_token');
     const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers['X-FreshFood-Token'] = token;
     const res = await fetch('/api/community/upload-image', {
       method: 'POST',
       headers: headers,

@@ -701,7 +701,7 @@
 
       try {
         const res = await fetch(`/api/auth/admin/global-heatmap?days_range=${range}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('freshplate_token')}` }
+          headers: { 'X-FreshFood-Token': localStorage.getItem('freshplate_token') }
         });
         const data = await res.json();
 
