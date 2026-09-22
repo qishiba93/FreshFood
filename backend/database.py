@@ -9,6 +9,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def default_database_url() -> str:
+    persistent_dir = os.getenv("PERSISTENT_DATA_DIR", "").strip()
+    if persistent_dir:
+        os.makedirs(persistent_dir, exist_ok=True)
+        database_path = os.path.abspath(os.path.join(persistent_dir, "freshfood.db"))
+        return f"sqlite+aiosqlite:///{database_path.replace(os.sep, '/')}"
+    return "mysql+aiomysql://root:123456@127.0.0.1:3306/freshplate_db?charset=utf8mb4"
+
 def normalize_database_url(url: str) -> str:
     """Convert common cloud database URLs to SQLAlchemy async drivers."""
     if url.startswith("postgres://"):
@@ -23,10 +32,7 @@ def normalize_database_url(url: str) -> str:
 
 
 DATABASE_URL = normalize_database_url(
-    os.getenv(
-        "DATABASE_URL",
-        "mysql+aiomysql://root:123456@127.0.0.1:3306/freshplate_db?charset=utf8mb4",
-    )
+    os.getenv("DATABASE_URL", "").strip() or default_database_url()
 )
 
 engine_options = {"echo": False, "pool_pre_ping": True}

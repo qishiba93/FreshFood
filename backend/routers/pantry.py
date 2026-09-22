@@ -19,11 +19,9 @@ from backend.services.carbon_service import (
     convert_to_environmental_equivalents
 )
 from backend.auth import get_current_user
+from backend.storage import UPLOAD_DIR
 
 router = APIRouter(prefix="/api/pantry", tags=["食材管理"])
-
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # 1. 拍照识别 (原图先暂存)
 @router.post("/recognize-food")
@@ -31,7 +29,7 @@ async def recognize_food(file: UploadFile = File(...)):
     contents = await file.read()
     ext = os.path.splitext(file.filename)[-1] or ".jpg"
     unique_filename = f"{uuid.uuid4().hex}{ext}"
-    filepath = os.path.join(UPLOAD_DIR, unique_filename)
+    filepath = os.path.join(str(UPLOAD_DIR), unique_filename)
 
     with open(filepath, "wb") as f:
         f.write(contents)

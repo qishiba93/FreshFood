@@ -21,3 +21,16 @@ docker run --rm -p 8000:8000 --env-file .env freshfood
 仓库根目录的 `render.yaml` 会创建 Web 服务和 PostgreSQL 数据库。部署时在 Render 控制台分别填写 `DEEPSEEK_API_KEY`、`VISION_API_KEY` 与 `BOOTSTRAP_ADMIN_PASSWORD`，真实密钥不会进入 Git 仓库。
 
 用户上传文件默认保存在容器文件系统。生产环境如需永久保存上传图片，应为服务挂载持久磁盘，或接入对象存储。
+
+## 魔搭创空间部署（国内免费）
+
+创建一个 **Gradio SDK** 类型的公开创空间并选择免费 CPU，然后把本仓库同步到创空间。平台会运行根目录的 `app.py`，服务监听 `0.0.0.0:7860`。
+
+在创空间设置中添加以下 Secrets：
+
+- `DEEPSEEK_API_KEY`
+- `VISION_API_KEY`
+- `SECRET_KEY`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+
+再添加普通变量 `BOOTSTRAP_ADMIN_USERNAME=admin`。数据库和上传图片默认保存在魔搭持久目录 `/mnt/workspace/freshfood`，无需另外创建数据库。

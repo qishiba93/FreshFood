@@ -12,11 +12,9 @@ from backend.database import get_db
 from backend.models import StandardFoodImage, User
 from backend.schemas import StandardFoodImageCreate
 from backend.auth import get_current_admin_user
+from backend.storage import STANDARDS_DIR
 
 router = APIRouter(prefix="/api/admin/food-images", tags=["标准食材图库管理 (管理员专属)"])
-
-UPLOAD_STANDARD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "standards")
-os.makedirs(UPLOAD_STANDARD_DIR, exist_ok=True)
 
 # 1. 上传标准食材封面高清图
 @router.post("/upload-file")
@@ -27,7 +25,7 @@ async def upload_standard_image_file(
     contents = await file.read()
     ext = os.path.splitext(file.filename)[-1] or ".jpg"
     unique_name = f"std_{uuid.uuid4().hex[:12]}{ext}"
-    target_path = os.path.join(UPLOAD_STANDARD_DIR, unique_name)
+    target_path = os.path.join(str(STANDARDS_DIR), unique_name)
 
     with open(target_path, "wb") as f:
         f.write(contents)

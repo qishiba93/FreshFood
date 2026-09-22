@@ -15,11 +15,9 @@ from backend.models import CommunityPost, PostLike, PostComment, CommunityReport
 from backend.schemas import CommunityPostCreate, PostCommentCreate, CommunityReportCreate
 from backend.services.ai_service import verify_dish_and_generate_recipe
 from backend.auth import get_current_user
+from backend.storage import COMMUNITY_DIR
 
 router = APIRouter(prefix="/api/community", tags=["美食生活社区"])
-
-UPLOAD_COMMUNITY_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "uploads", "community")
-os.makedirs(UPLOAD_COMMUNITY_DIR, exist_ok=True)
 
 # 1. 上传动态成品图片
 @router.post("/upload-image")
@@ -30,7 +28,7 @@ async def upload_community_dish_image(
     contents = await file.read()
     ext = os.path.splitext(file.filename)[-1] or ".jpg"
     unique_name = f"dish_{uuid.uuid4().hex[:12]}{ext}"
-    target_path = os.path.join(UPLOAD_COMMUNITY_DIR, unique_name)
+    target_path = os.path.join(str(COMMUNITY_DIR), unique_name)
 
     with open(target_path, "wb") as f:
         f.write(contents)
@@ -46,7 +44,7 @@ async def create_community_post(
     user: User = Depends(get_current_user)
 ):
     image_filename = os.path.basename(req.image_url) if req.image_url else ""
-    image_abs_path = os.path.join(UPLOAD_COMMUNITY_DIR, image_filename) if image_filename else None
+    image_abs_path = os.path.join(str(COMMUNITY_DIR), image_filename) if image_filename else None
 
     # 调用 AI 多模态研判：判断图片与文字是否为真实菜肴
     matched_recipe = await verify_dish_and_generate_recipe(

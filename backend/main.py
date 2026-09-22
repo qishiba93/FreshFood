@@ -20,6 +20,7 @@ from backend.database import engine, Base
 from backend.database import AsyncSessionLocal
 from backend.auth import get_password_hash
 from backend.models import User
+from backend.storage import STANDARDS_DIR, UPLOAD_DIR
 # 引入全部业务路由群
 from backend.routers import (
     auth_router,
@@ -84,18 +85,8 @@ async def healthcheck():
     return {"status": "ok", "service": "freshfood"}
 
 # 挂载全部静态文件目录
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "static", "uploads")
-COMMUNITY_DIR = os.path.join(os.path.dirname(__file__), "static", "uploads", "community")
-STANDARDS_DIR = os.path.join(os.path.dirname(__file__), "static", "standards")
-DEFAULTS_DIR = os.path.join(os.path.dirname(__file__), "static", "uploads", "defaults")
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(COMMUNITY_DIR, exist_ok=True)
-os.makedirs(STANDARDS_DIR, exist_ok=True)
-os.makedirs(DEFAULTS_DIR, exist_ok=True)
-
-app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-app.mount("/static/standards", StaticFiles(directory=STANDARDS_DIR), name="standards")
+app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/static/standards", StaticFiles(directory=str(STANDARDS_DIR)), name="standards")
 
 # 挂载前端网页目录
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, "frontend")
