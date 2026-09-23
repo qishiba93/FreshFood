@@ -1739,29 +1739,35 @@ window.confirmBatchDeduct = async function() {
 
 // ==================== 13. 减碳周榜 ====================
 window.loadCarbonLeaderboard = async function() {
-  const container = document.getElementById("carbonLeaderboardContainer");
-  if (!container) return;
-  container.innerHTML = '<div class="text-xs text-slate-400 py-10 text-center">正在同步减碳榜单与生态账本...</div>';
+  const containers = [
+    document.getElementById("vegetarianLeaderboardContainer"),
+    document.getElementById("nonVegetarianLeaderboardContainer")
+  ].filter(Boolean);
+  if (!containers.length) return;
+  containers.forEach(container => {
+    container.innerHTML = '<div class="text-xs text-slate-400 py-10 text-center">正在同步减碳榜单与生态账本...</div>';
+  });
 
   try {
     const data = await Api.getCarbonLeaderboard();
     const cycleEl = document.getElementById("carbonCycleDesc");
     if (cycleEl) cycleEl.textContent = data.cycle_info.status;
 
-    const my = data.my_stat;
-    const myRankEl = document.getElementById("myCarbonRankText");
-    const myKgEl = document.getElementById("myCarbonKgText");
-    const myTreeEl = document.getElementById("myCarbonTreesText");
-    if (myRankEl) myRankEl.textContent = my.rank;
-    if (myKgEl) myKgEl.textContent = `${my.carbon_saved_kg} kg`;
-    if (myTreeEl) myTreeEl.textContent = `${my.tree_days || 0} 天`;
-
-    if (!data.top20.length) {
-      container.innerHTML = '<div class="text-xs text-slate-400 py-12 text-center">本周暂无记录，快做道菜成为本周环保先锋吧！</div>';
-      return;
-    }
-
-    container.innerHTML = data.top20.map(item => `
+    const renderBoard = (board, prefix, containerId) => {
+      const container = document.getElementById(containerId);
+      if (!container || !board) return;
+      const my = board.my_stat || {};
+      const rankEl = document.getElementById(`my${prefix}RankText`);
+      const kgEl = document.getElementById(`my${prefix}KgText`);
+      const treeEl = document.getElementById(`my${prefix}TreesText`);
+      if (rankEl) rankEl.textContent = my.rank ?? "未上榜";
+      if (kgEl) kgEl.textContent = `${my.carbon_saved_kg || 0} kg`;
+      if (treeEl) treeEl.textContent = `${my.tree_days || 0} 天`;
+      if (!board.top20 || !board.top20.length) {
+        container.innerHTML = '<div class="text-xs text-slate-400 py-12 text-center">本周暂无记录，快做道菜积累减碳贡献吧！</div>';
+        return;
+      }
+      container.innerHTML = board.top20.map(item => `
       <div class="flex items-center justify-between p-3.5 rounded-2xl ${item.is_me ? 'bg-emerald-50 border border-emerald-300 shadow-xs' : 'bg-slate-50 border border-slate-100'} text-xs">
         <div class="flex items-center gap-3.5">
           <span class="w-8 text-center font-black ${item.rank === 1 ? 'text-amber-500 text-base' : (item.rank === 2 ? 'text-slate-400 text-base' : (item.rank === 3 ? 'text-amber-700 text-base' : 'text-slate-400'))}">${item.rank}</span>
@@ -1775,9 +1781,15 @@ window.loadCarbonLeaderboard = async function() {
           <span class="text-[11px] text-slate-400 block mt-0.5">≈ 植树 ${item.tree_days} 天</span>
         </div>
       </div>
-    `).join('');
+      `).join('');
+    };
+
+    renderBoard(data.vegetarian, "Vegetarian", "vegetarianLeaderboardContainer");
+    renderBoard(data.non_vegetarian, "NonVegetarian", "nonVegetarianLeaderboardContainer");
   } catch (err) {
-    container.innerHTML = `<div class="text-xs text-red-500 py-6 text-center">${err.message}</div>`;
+    containers.forEach(container => {
+      container.innerHTML = `<div class="text-xs text-red-500 py-6 text-center">${err.message}</div>`;
+    });
   }
 };
 

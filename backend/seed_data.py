@@ -140,13 +140,13 @@ async def seed_demo_data(session: AsyncSession, persistent_dir: str) -> bool:
             ))
 
     carbon_logs = [
-        ("user1", "原切牛肉", 200.0, 12000.0, "黑椒小牛排", timedelta()),
-        ("user1", "番茄", 150.0, 210.0, "番茄烩蛋", timedelta(days=-1)),
-        ("user2", "黑虎虾仁", 300.0, 3600.0, "葱油白灼虾", timedelta()),
-        ("user2", "鲜嫩鸡胸肉", 250.0, 1375.0, "香草煎鸡胸", timedelta(days=-2)),
-        ("user3", "土豆", 300.0, 180.0, "清炒土豆丝", timedelta()),
+        ("user1", "原切牛肉", 200.0, 12000.0, "黑椒小牛排", "non_vegetarian", timedelta()),
+        ("user1", "番茄", 150.0, 210.0, "番茄烩蛋", "vegetarian", timedelta(days=-1)),
+        ("user2", "黑虎虾仁", 300.0, 3600.0, "葱油白灼虾", "non_vegetarian", timedelta()),
+        ("user2", "鲜嫩鸡胸肉", 250.0, 1375.0, "香草煎鸡胸", "non_vegetarian", timedelta(days=-2)),
+        ("user3", "土豆", 300.0, 180.0, "清炒土豆丝", "vegetarian", timedelta()),
     ]
-    for username, item_name, weight, carbon, recipe, offset in carbon_logs:
+    for username, item_name, weight, carbon, recipe, category, offset in carbon_logs:
         user = users[username]
         existing = await _find_one(
             session,
@@ -161,6 +161,7 @@ async def seed_demo_data(session: AsyncSession, persistent_dir: str) -> bool:
                 item_name=item_name,
                 weight_grams=weight,
                 carbon_saved_grams=carbon,
+                food_category=category,
                 source_recipe=recipe,
                 created_at=now + offset,
             ))

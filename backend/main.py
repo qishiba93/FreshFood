@@ -20,14 +20,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import select, inspect, text
 
 from backend.database import engine, Base
 from backend.database import AsyncSessionLocal
 from backend.auth import get_password_hash
-from backend.models import User
+from backend.models import User, UserCarbonLog
 from backend.seed_data import seed_demo_data
 from backend.storage import STANDARDS_DIR, UPLOAD_DIR
+from backend.services.carbon_service import fallback_food_category
 # 引入全部业务路由群
 from backend.routers import (
     auth_router,
@@ -47,6 +48,29 @@ async def lifespan(app: FastAPI):
     # 服务启动时，安全确保全套数据库新表自动同步创建
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        def add_carbon_category_column(sync_conn):
+            columns = {column["name"] for column in inspect(sync_conn).get_columns("user_carbon_logs")}
+            if "food_category" not in columns:
+                sync_conn.execute(text(
+                    "ALTER TABLE user_carbon_logs "
+                    "ADD COLUMN food_category VARCHAR(16) NOT NULL DEFAULT 'vegetarian'"
+                ))
+
+        await conn.run_sync(add_carbon_category_column)
+
+    # 给旧版本账本补齐分类。规则只改分类字段，不触碰已有减碳数值。
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(UserCarbonLog))
+        legacy_logs = result.scalars().all()
+        changed = False
+        for log in legacy_logs:
+            category = fallback_food_category(log.item_name)
+            if log.food_category != category:
+                log.food_category = category
+                changed = True
+        if changed:
+            await session.commit()
 
     # The first Docker deployment used UTC before the runtime timezone was set.
     # Correct only records from that known deployment window; the range makes

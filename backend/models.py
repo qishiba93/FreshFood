@@ -97,6 +97,13 @@ class UserCarbonLog(Base):
     item_name = Column(String(64), nullable=False, comment="消耗食材名")
     weight_grams = Column(Float, nullable=False, comment="消耗克重")
     carbon_saved_grams = Column(Float, nullable=False, comment="减碳贡献克数 (克 CO2e)")
+    food_category = Column(
+        String(16),
+        nullable=False,
+        default="vegetarian",
+        index=True,
+        comment="食材分类: vegetarian / non_vegetarian",
+    )
     source_recipe = Column(String(128), nullable=True, comment="关联制作菜名")
     created_at = Column(DateTime, default=datetime.now, index=True, comment="发生时间")
 

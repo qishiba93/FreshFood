@@ -27,7 +27,33 @@ SYSTEM_CARBON_AI_PROMPT = """你是一名国际权威的食品全生命周期环
    - 蛋奶豆制品适中，每克食材约 2~6g CO2e；
    - 果蔬类碳排较低但极易腐烂发酵产气，每克食材约 0.5~2.0g CO2e。
 2. 必须输出纯合法 JSON 格式，严禁包含任何 Markdown 标记（如 ```json 等）。
+3. 同时判断每种食材的分类：植物、菌菇、豆制品归为 vegetarian；肉、禽、水产、蛋、奶及其制品归为 non_vegetarian。
 """
+
+NON_VEGETARIAN_KEYWORDS = (
+    "牛", "羊", "猪", "肉", "鸡", "鸭", "鹅", "鱼", "虾", "蟹", "贝", "蛤", "蚝", "鲍",
+    "鱿", "章鱼", "蛋", "奶", "乳", "酪", "芝士", "奶油", "黄油", "蜂蜜",
+)
+
+
+def fallback_food_category(food_name: str) -> str:
+    """按食材名称做稳定的本地兜底分类，保证 AI 不可用时仍能进入正确榜单。"""
+    name = (food_name or "").strip().lower()
+    if any(token in name for token in ("素鸡", "素肉", "素鱼", "植物肉", "人造肉")):
+        return "vegetarian"
+    return "non_vegetarian" if any(keyword in name for keyword in NON_VEGETARIAN_KEYWORDS) else "vegetarian"
+
+
+def normalize_food_category(value: Any, food_name: str) -> str:
+    """规范化 AI 返回值，只允许两个榜单使用的分类。"""
+    normalized = str(value or "").strip().lower()
+    if normalized in {"vegetarian", "non_vegetarian"}:
+        return normalized
+    if any(token in normalized for token in ("non", "meat", "animal", "荤", "非素")):
+        return "non_vegetarian"
+    if any(token in normalized for token in ("vegetarian", "plant", "素", "植物")):
+        return "vegetarian"
+    return fallback_food_category(food_name)
 
 def clean_llm_json(raw_text: str) -> dict:
     text = raw_text.strip()
@@ -47,10 +73,10 @@ def clean_llm_json(raw_text: str) -> dict:
         raise
 
 # 1. AI 单项食材消耗碳值推算
-async def ai_estimate_carbon_single(food_name: str, weight_grams: float, recipe_name: str = "家常料理") -> Tuple[float, str]:
+async def ai_estimate_carbon_single(food_name: str, weight_grams: float, recipe_name: str = "家常料理") -> Tuple[float, str, str]:
     """
     调用 AI 实时估算单种食材的减碳当量
-    返回: (减碳克数, 科学推算理由)
+    返回: (减碳克数, 科学推算理由, 食材分类)
     """
     user_prompt = f"""
 请评估以下食材在家庭烹饪中按需食用、避免变质丢弃所产生的减碳当量：
@@ -60,6 +86,7 @@ async def ai_estimate_carbon_single(food_name: str, weight_grams: float, recipe_
 
 请严格按如下纯 JSON 输出：
 {{
+  "food_category": "vegetarian",
   "carbon_saved_grams": 450.5,
   "reason": "简述该食材养殖/种植及保鲜特性的减碳机理(30字以内)"
 }}
@@ -79,19 +106,23 @@ async def ai_estimate_carbon_single(food_name: str, weight_grams: float, recipe_
             resp = await client.post(DEEPSEEK_API_URL, headers=headers, json=payload)
             if resp.status_code == 200:
                 data = clean_llm_json(resp.json()["choices"][0]["message"]["content"])
-                return float(data.get("carbon_saved_grams", weight_grams * 2.0)), data.get("reason", "AI 动态核算完成")
+                return (
+                    float(data.get("carbon_saved_grams", weight_grams * 2.0)),
+                    data.get("reason", "AI 动态核算完成"),
+                    normalize_food_category(data.get("food_category"), food_name),
+                )
     except Exception as e:
         print(f"[Carbon AI Fallback Warning]: AI单项估算异常或超时: {e}")
 
     # 网络异常时的平滑底线兜底算法
     fallback_factor = 25.0 if any(k in food_name for k in ["牛", "羊"]) else (7.0 if any(k in food_name for k in ["肉", "鸡", "鱼", "虾"]) else 1.2)
-    return round(weight_grams * fallback_factor, 1), "基于食品生命周期标准算法核算"
+    return round(weight_grams * fallback_factor, 1), "基于食品生命周期标准算法核算", fallback_food_category(food_name)
 
 # 2. AI 批量食材消耗一次性打包核算
-async def ai_estimate_carbon_batch(items: List[Dict[str, Any]], recipe_name: str = "定制佳肴") -> Tuple[float, Dict[int, float], str]:
+async def ai_estimate_carbon_batch(items: List[Dict[str, Any]], recipe_name: str = "定制佳肴") -> Tuple[float, Dict[int, float], Dict[int, str], str]:
     """
     调用 AI 一次性推算多项做菜食材的总减碳与明细
-    返回: (总减碳克数, {item_id: 该项减碳克数}, 全局绿色减碳洞察评语)
+    返回: (总减碳克数, {item_id: 该项减碳克数}, {item_id: 食材分类}, 全局绿色减碳洞察评语)
     """
     items_desc = "\n".join([f"- ID:{it['id']} | 食材: {it['name']} | 消耗量: {it['weight']}克" for it in items])
     user_prompt = f"""
@@ -103,8 +134,8 @@ async def ai_estimate_carbon_batch(items: List[Dict[str, Any]], recipe_name: str
   "total_carbon_saved_grams": 1250.0,
   "overall_insight": "AI一句话绿色点评（如：本次菜品重点避免了牛羊肉变质产生的高额碳排）",
   "breakdown": [
-    {{"id": 1, "carbon_saved_grams": 800.0}},
-    {{"id": 2, "carbon_saved_grams": 450.0}}
+    {{"id": 1, "food_category": "non_vegetarian", "carbon_saved_grams": 800.0}},
+    {{"id": 2, "food_category": "vegetarian", "carbon_saved_grams": 450.0}}
   ]
 }}
 """
@@ -126,22 +157,26 @@ async def ai_estimate_carbon_batch(items: List[Dict[str, Any]], recipe_name: str
                 total = float(data.get("total_carbon_saved_grams", 0.0))
                 insight = data.get("overall_insight", "AI绿色厨房核算完成")
                 mapping = {}
+                category_mapping = {}
                 for b in data.get("breakdown", []):
                     mapping[int(b["id"])] = float(b.get("carbon_saved_grams", 0.0))
-                return total, mapping, insight
+                    category_mapping[int(b["id"])] = normalize_food_category(b.get("food_category"), next((it["name"] for it in items if it["id"] == int(b["id"])), ""))
+                return total, mapping, category_mapping, insight
     except Exception as e:
         print(f"[Carbon AI Batch Fallback]: 批量AI推算超时或异常: {e}")
 
     # 降级处理
     total = 0.0
     mapping = {}
+    category_mapping = {}
     for it in items:
         w = it["weight"]
         factor = 25.0 if any(k in it["name"] for k in ["牛", "羊"]) else (7.0 if any(k in it["name"] for k in ["肉", "鸡", "鱼", "虾"]) else 1.2)
         val = round(w * factor, 1)
         mapping[it["id"]] = val
+        category_mapping[it["id"]] = fallback_food_category(it["name"])
         total += val
-    return round(total, 1), mapping, "绿色低碳烹饪，有效减少厨余损耗！"
+    return round(total, 1), mapping, category_mapping, "绿色低碳烹饪，有效减少厨余损耗！"
 
 # 3. 生态等价物折算
 def convert_to_environmental_equivalents(carbon_saved_grams: float) -> dict:

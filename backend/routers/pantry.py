@@ -16,7 +16,8 @@ from backend.services.food_image_service import resolve_food_image
 from backend.services.carbon_service import (
     ai_estimate_carbon_single,
     ai_estimate_carbon_batch,
-    convert_to_environmental_equivalents
+    convert_to_environmental_equivalents,
+    fallback_food_category,
 )
 from backend.auth import get_current_user
 from backend.storage import UPLOAD_DIR
@@ -123,7 +124,7 @@ async def deduct_pantry_item(
     recipe_name = req.recipe_name or "家常美味"
 
     # 由 AI 实时推演该次做菜的真实减碳贡献与理由
-    carbon_saved, ai_reason = await ai_estimate_carbon_single(
+    carbon_saved, ai_reason, food_category = await ai_estimate_carbon_single(
         food_name=item.name,
         weight_grams=req.deduct_weight,
         recipe_name=recipe_name
@@ -134,6 +135,7 @@ async def deduct_pantry_item(
         item_name=item.name,
         weight_grams=req.deduct_weight,
         carbon_saved_grams=carbon_saved,
+        food_category=food_category,
         source_recipe=recipe_name
     )
     db.add(carbon_log)
@@ -156,6 +158,7 @@ async def deduct_pantry_item(
         "is_used_up": is_used_up,
         "remaining_weight": max(0.0, remaining_after),
         "carbon_saved_grams": carbon_saved,
+        "food_category": food_category,
         "equivalents": convert_to_environmental_equivalents(carbon_saved)
     }
 
@@ -203,7 +206,7 @@ async def batch_deduct_pantry_items(
 
         # 第二步：将所有待扣减食材打包交给 AI 实时计算综合减碳
         ai_batch_payload = [{"id": it["id"], "name": it["name"], "weight": it["weight"]} for it in items_to_process]
-        total_carbon, breakdown_map, eco_insight = await ai_estimate_carbon_batch(
+        total_carbon, breakdown_map, category_map, eco_insight = await ai_estimate_carbon_batch(
             items=ai_batch_payload,
             recipe_name=req.recipe_name
         )
@@ -213,12 +216,14 @@ async def batch_deduct_pantry_items(
             item = it["item_orm"]
             deduct_weight = it["weight"]
             item_carbon = breakdown_map.get(item.id, round(deduct_weight * 2.0, 1))
+            food_category = category_map.get(item.id, fallback_food_category(item.name))
 
             db.add(UserCarbonLog(
                 user_id=user.id,
                 item_name=item.name,
                 weight_grams=deduct_weight,
                 carbon_saved_grams=item_carbon,
+                food_category=food_category,
                 source_recipe=req.recipe_name
             ))
 
@@ -241,6 +246,10 @@ async def batch_deduct_pantry_items(
         "message": f"批量核销完成！AI 估算本次为地球减排约 {round(total_carbon, 1)}g CO2e！",
         "eco_insight": eco_insight,
         "total_carbon_saved_grams": round(total_carbon, 1),
+        "category_totals": {
+            "vegetarian": round(sum(breakdown_map.get(it["id"], 0.0) for it in items_to_process if category_map.get(it["id"], fallback_food_category(it["name"])) == "vegetarian"), 1),
+            "non_vegetarian": round(sum(breakdown_map.get(it["id"], 0.0) for it in items_to_process if category_map.get(it["id"], fallback_food_category(it["name"])) == "non_vegetarian"), 1),
+        },
         "equivalents": convert_to_environmental_equivalents(total_carbon),
         "updated": updated_items,
         "cleared": deleted_names
