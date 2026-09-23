@@ -453,8 +453,12 @@ window.addNewHealthProfile = async function(e) {
 
 window.deleteHealthMember = async function(id) {
   if (!confirm("确定删除该家庭成员的健康档案吗？")) return;
-  await Api.deleteHealthProfile(id);
-  await refreshHealthProfilesList();
+  try {
+    await Api.deleteHealthProfile(id);
+    await refreshHealthProfilesList();
+  } catch (err) {
+    alert("删除失败: " + err.message);
+  }
 };
 
 // ==================== 5. 冰箱食材展示 (防溢出) ====================

@@ -127,6 +127,7 @@ async def update_health_profile(
 
 # 4. 删除成员健康档案
 @router.delete("/profiles/{profile_id}")
+@router.post("/profiles/{profile_id}/delete")
 async def delete_health_profile(
     profile_id: int,
     db: AsyncSession = Depends(get_db),

@@ -379,12 +379,16 @@ export const Api = {
   },
 
   async deleteHealthProfile(id) {
-    const res = await fetch(`/api/health/profiles/${id}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/health/profiles/${id}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);
-    return await res.json();
+    const resData = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(resData.detail || "删除健康档案失败");
+    }
+    return resData;
   },
 
   // ==================== 8. 减碳周榜与个人成就 ====================
