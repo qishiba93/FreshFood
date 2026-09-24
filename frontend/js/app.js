@@ -374,7 +374,10 @@ function parseCookingSchedule(text, fallbackDish = '当前菜品') {
   );
   const stageHints = [];
   for (const rawLine of source.split('\n')) {
-    const line = rawLine.replace(/^\s*(?:[-*•]|\d+[.、)])\s*/, '').trim();
+    const line = rawLine
+      .replace(/^\s*(?:[-*•]|\d+[.、)])\s*/, '')
+      .replace(/^第\s*/, '')
+      .trim();
     if (!line) continue;
     const match = line.match(linePattern);
     if (!match) continue;
@@ -385,10 +388,23 @@ function parseCookingSchedule(text, fallbackDish = '当前菜品') {
     }
   }
 
-  const totalMatches = [...source.matchAll(new RegExp(`(?:总耗时|总时长|预计用时|预计时长|大约需要|约需)\\s*(?:约|为|是|共)?\\s*(${expression})`, 'gi'))];
+  const totalMatches = [...source.matchAll(new RegExp(`(?:总耗时|总时长|总计时|预计用时|预计时长|大约需要|约需|预计|需要)\\s*(?:约|为|是|共)?\\s*(${expression})`, 'gi'))];
   const explicitTotals = totalMatches
     .map(match => parseDurationExpression(match[1]))
     .filter(Boolean);
+  const inlineStagePattern = new RegExp(
+    `(?:在\\s*)?(${expression})\\s*(?:(?:的时候|时|后)\\s*)?(?:提醒我|提醒您|提示我|提示您|告诉我|告诉您|提醒|提示)\\s*([^，。,；;\\n]+)`,
+    'gi'
+  );
+  for (const match of source.matchAll(inlineStagePattern)) {
+    const parsed = parseDurationExpression(match[1]);
+    const instruction = match[2].trim();
+    if (!parsed || !instruction) continue;
+    const atSeconds = Math.min(86399, Math.max(1, parsed.seconds));
+    if (!stageHints.some(item => item.atSeconds === atSeconds && item.instruction === instruction)) {
+      stageHints.push({ atSeconds, instruction });
+    }
+  }
   const maxStage = stageHints.reduce((max, item) => Math.max(max, item.atSeconds), 0);
   const explicitTotal = explicitTotals.reduce((max, item) => Math.max(max, item.seconds), 0);
   const durationSeconds = Math.min(86399, Math.max(maxStage, explicitTotal));
@@ -570,7 +586,9 @@ async function sendMiniAiMessage(forcedMessage = null) {
   appendMiniAiMessage(text, 'user');
   miniAiHistory.push({ role: 'user', content: text });
   const cookingCommand = parseCookingStartCommand(text);
+  const intentCommand = !cookingCommand && shouldSetCookingTimer(text) ? parseCookingSchedule(text) : null;
   if (cookingCommand) startCookingTimer(cookingCommand);
+  else if (intentCommand) startCookingTimer(intentCommand, text);
   miniAiBusy = true;
   const sendBtn = document.getElementById('miniAiSendBtn');
   if (sendBtn) sendBtn.disabled = true;
@@ -584,7 +602,7 @@ async function sendMiniAiMessage(forcedMessage = null) {
     const reply = (res.reply || '').trim() || '我暂时没有生成有效回答，请再问我一次。';
     appendMiniAiMessage(reply, 'assistant', { notice: res.is_refused });
     miniAiHistory.push({ role: 'assistant', content: reply });
-    if (!cookingCommand && shouldSetCookingTimer(text)) {
+    if (!cookingCommand && !intentCommand && shouldSetCookingTimer(text)) {
       const scheduleSource = [reply, ...miniAiHistory.slice(-6).map(item => item.content)].join('\n');
       const schedule = parseCookingSchedule(scheduleSource);
       if (schedule) startCookingTimer(schedule, reply);
