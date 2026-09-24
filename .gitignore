@@ -19,6 +19,8 @@ ENV/
 *.log
 *.sqlite3
 *.db
+data/
+.codex-ui-data/
 
 # 本地用户实拍上传的生鲜图片原件 (保留占位符)
 backend/static/uploads/*

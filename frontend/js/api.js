@@ -528,5 +528,22 @@ export const Api = {
       throw new Error(resData.detail || "AI 主厨管家响应失败");
     }
     return resData;
+  },
+
+  async recipeFromImage(file) {
+    const headers = {};
+    const token = localStorage.getItem('freshplate_token');
+    if (token) headers['X-FreshFood-Token'] = token;
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/chat/recipe-from-image', {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    await checkAuthStatus(res);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || '图片菜谱识别失败');
+    return data;
   }
 };

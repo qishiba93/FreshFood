@@ -130,6 +130,14 @@
           <section id="fridge3DSection" class="fridge-scene-section" hidden aria-label="三维双门冰箱">
             <div class="fridge-scene-heading"><span><span class="fridge-live-dot"></span>FreshPlate</span><span class="fridge-model-label">拖动旋转 · 鼠标悬停实时查看保质期</span></div>
             <div id="fridge3DCanvas" class="fridge-canvas"></div>
+            <div id="cookingTimer3D" class="cooking-timer-3d hidden" aria-live="polite">
+              <div class="cooking-timer-face">
+                <span class="cooking-timer-label">正在烹饪</span>
+                <strong id="cookingTimerDish">--</strong>
+                <span id="cookingTimerValue" class="cooking-timer-value">00:00:00</span>
+                <span id="cookingTimerStatus" class="cooking-timer-status">计时准备中</span>
+              </div>
+            </div>
 
             <!-- 3D 控制栏 (包含左右、上下平移与缩放) -->
             <div class="fridge-scene-controls">
@@ -327,13 +335,15 @@
         </div>
 
         <!-- 底部输入框 -->
-        <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <input type="text" id="chatUserInput" placeholder="向大厨请教烹饪细节，或吩咐将食材加入备菜/放入冰箱..." class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500" />
-            <button onclick="sendUserChatMessage()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 shrink-0">
-              <span>🚀</span> <span>发送</span>
-            </button>
-          </div>
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <input type="text" id="chatUserInput" placeholder="向大厨请教烹饪细节，或吩咐将食材加入备菜/放入冰箱..." class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500" />
+              <input type="file" id="chatRecipeImageInput" accept="image/png,image/jpeg,image/webp" class="hidden" onchange="handleRecipeImageUpload(event, 'chat')" />
+              <button type="button" onclick="document.getElementById('chatRecipeImageInput').click()" class="px-3 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition shrink-0" title="上传菜品图片识别菜谱">📷 图片菜谱</button>
+              <button onclick="sendUserChatMessage()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5 shrink-0">
+                <span>🚀</span> <span>发送</span>
+              </button>
+            </div>
           <span class="text-[10px] text-slate-400 pl-1">
             * 领域安全守则：AI 主厨专注于食材烹饪、火候、备菜与库存调度。无关话题将礼貌拒答。
           </span>
@@ -406,6 +416,32 @@
       </div>
 
     </main>
+  </div>
+
+  <!-- 用户端常驻小 AI；管理员页面使用独立 admin.html，不会挂载此组件 -->
+  <div id="miniAiDock" class="mini-ai-dock hidden" aria-live="polite">
+    <section id="miniAiPanel" class="mini-ai-panel hidden" aria-label="小 AI 对话框">
+      <header class="mini-ai-panel-header">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="mini-ai-avatar-art mini-ai-avatar-small" aria-hidden="true"></span>
+          <div class="min-w-0"><strong>小智鲜</strong><span>随时帮你看菜、做菜和计时</span></div>
+        </div>
+        <button type="button" id="miniAiCloseBtn" class="mini-ai-close" aria-label="关闭小 AI 对话框" title="关闭">×</button>
+      </header>
+      <div id="miniAiMessages" class="mini-ai-messages custom-scrollbar">
+        <div class="mini-ai-message assistant">嗨，我在这里。可以问我做菜，也可以说“开始做番茄炒蛋，预计 20 分钟”。</div>
+      </div>
+      <div class="mini-ai-composer">
+        <input type="file" id="miniAiRecipeImageInput" accept="image/png,image/jpeg,image/webp" class="hidden" onchange="handleRecipeImageUpload(event, 'mini')" />
+        <button type="button" onclick="document.getElementById('miniAiRecipeImageInput').click()" class="mini-ai-tool" title="上传菜品图片">📷</button>
+        <input type="text" id="miniAiInput" placeholder="问小 AI..." autocomplete="off" />
+        <button type="button" id="miniAiSendBtn" class="mini-ai-send" title="发送">↑</button>
+      </div>
+    </section>
+    <button type="button" id="miniAiBubble" class="mini-ai-bubble" aria-label="打开小 AI 对话框" title="打开小 AI">
+      <span class="mini-ai-avatar-art" aria-hidden="true"></span>
+      <span class="mini-ai-bubble-label">小 AI</span>
+    </button>
   </div>
 
   <!-- ================= 弹窗集合 ================= -->

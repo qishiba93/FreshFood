@@ -8,6 +8,7 @@ import re
 import random
 import base64
 import httpx
+from openai import AsyncOpenAI
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
@@ -27,6 +28,10 @@ load_dotenv()
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL") or f"{os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com').rstrip('/')}/v1/chat/completions"
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+VISION_API_KEY = os.getenv("VISION_API_KEY") or DEEPSEEK_API_KEY
+VISION_BASE_URL = os.getenv("VISION_BASE_URL", os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"))
+VISION_MODEL = os.getenv("VISION_MODEL", "deepseek-flash")
+vision_client = AsyncOpenAI(api_key=VISION_API_KEY, base_url=VISION_BASE_URL)
 
 COMMUNITY_DISH_AUDIT_SYSTEM_PROMPT = """你是一名兼具五星级主厨素养与美食评论家眼光的顶级烹饪大师。
 用户正在社区发布做菜打卡动态，提供了菜品标题、心得描述以及实拍照片。
@@ -204,7 +209,54 @@ async def generate_today_eat_recipes(
     )
     return await call_deepseek_llm(SYSTEM_RECIPE_PROMPT, user_prompt)
 
-# 5. 社区发帖菜品智能研判
+
+# 5. AI 厨师图片识别菜谱
+async def generate_recipe_from_image(image_bytes: bytes, filename: str) -> dict:
+    """识别用户上传的成品菜图，并为真实菜品生成可执行菜谱。"""
+    ext = (filename or "").lower().rsplit(".", 1)[-1]
+    mime_type = {"png": "image/png", "webp": "image/webp", "jpeg": "image/jpeg", "jpg": "image/jpeg"}.get(ext, "image/jpeg")
+    image_data = base64.b64encode(image_bytes).decode("utf-8")
+    system_prompt = """你是智鲜厨房的视觉主厨。你只能处理与可烹饪菜品相关的图片。
+如果图片是风景、人物、宠物、文件、商品、截图或其他与菜肴无关的内容，必须返回 is_dish=false，不能编造菜谱。
+如果图片确实是一道菜，请根据可见食材和烹饪形态生成家常菜谱；看不清的食材要标注“根据图片推测”，不要假装确定。
+必须输出纯 JSON，不要 Markdown：
+{
+  "is_dish": true,
+  "recipe_name": "4到8字菜名",
+  "difficulty": "初级 · 20分钟",
+  "ingredients_needed": [{"name": "食材", "amount": "适量"}],
+  "pantry_staples": "油盐等常备调料",
+  "cooking_steps": ["步骤1", "步骤2"],
+  "chef_tips": "关键火候与防翻车提示",
+  "reason": "若不是菜品，简述无法回答的原因"
+}"""
+    user_prompt = "请观察这张图片。只有确认是可烹饪菜肴时才生成菜谱。"
+    response = await vision_client.chat.completions.create(
+        model=VISION_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": [
+                {"type": "text", "text": user_prompt},
+                {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{image_data}"}},
+            ]},
+        ],
+        temperature=0.2,
+    )
+    result = clean_llm_json_response(response.choices[0].message.content or "{}")
+    result["is_dish"] = bool(result.get("is_dish"))
+    if not result["is_dish"]:
+        return {"is_dish": False, "reason": result.get("reason") or "图片中没有识别到可烹饪的菜品。"}
+    return {
+        "is_dish": True,
+        "recipe_name": result.get("recipe_name") or "图片家常菜",
+        "difficulty": result.get("difficulty") or "初级 · 20分钟",
+        "ingredients_needed": result.get("ingredients_needed") or [],
+        "pantry_staples": result.get("pantry_staples") or "少量油、盐和常备调料",
+        "cooking_steps": result.get("cooking_steps") or [],
+        "chef_tips": result.get("chef_tips") or "先确认食材熟透，再根据口味调整调味。",
+    }
+
+# 6. 社区发帖菜品智能研判
 async def verify_dish_and_generate_recipe(
     title: str,
     content: str,

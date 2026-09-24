@@ -109,6 +109,14 @@ let chatHistory = [];
 let currentChatRecipeContext = null;
 let returnTargetScope = null;
 
+// 小 AI 与当前页面的烹饪计时状态只保存在内存中，关闭网页即自动清空。
+let miniAiHistory = [];
+let miniAiBusy = false;
+let miniAiStageQueue = [];
+let cookingTimerState = null;
+let cookingTimerInterval = null;
+let miniAiDragMoved = false;
+
 export function setUpperDoor(open) {
   isUpperDoorOpen = open;
   const leaf = document.getElementById("upperDoorLeaf");
@@ -131,6 +139,290 @@ window.setUpperDoor = setUpperDoor;
 window.setLowerDoor = setLowerDoor;
 window.openModal = (id) => document.getElementById(id)?.classList.remove('hidden');
 window.closeModal = (id) => document.getElementById(id)?.classList.add('hidden');
+
+function escapeMiniAiText(value) {
+  return String(value || '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char])).replace(/\n/g, '<br>');
+}
+
+function setMiniAiVisible(visible) {
+  const dock = document.getElementById('miniAiDock');
+  if (dock) dock.classList.toggle('hidden', !visible);
+}
+
+function openMiniAiPanel() {
+  const panel = document.getElementById('miniAiPanel');
+  if (!panel) return;
+  panel.classList.remove('hidden');
+  document.getElementById('miniAiInput')?.focus();
+  const messages = document.getElementById('miniAiMessages');
+  if (messages) messages.scrollTop = messages.scrollHeight;
+}
+
+function appendMiniAiMessage(content, role = 'assistant', options = {}) {
+  const messages = document.getElementById('miniAiMessages');
+  if (!messages) return;
+  const bubble = document.createElement('div');
+  bubble.className = `mini-ai-message ${role}${options.notice ? ' notice' : ''}`;
+  bubble.innerHTML = escapeMiniAiText(content);
+  if (options.finish) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mini-ai-finish';
+    button.textContent = '大功告成';
+    button.addEventListener('click', completeCookingTimer);
+    bubble.appendChild(document.createElement('br'));
+    bubble.appendChild(button);
+  }
+  messages.appendChild(bubble);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function parseCookingStartCommand(text) {
+  const match = String(text || '').match(/(?:现在|我)?\s*开始(?:做|制作|烹饪|煮|炒|炖|蒸)?\s*([^，。,；;\n]+?)\s*(?:预计|需要|用时|耗时|大约|约)?\s*(\d{1,3})\s*(小时|小時|时|分钟|分|秒)/i);
+  if (!match) return null;
+  const dish = match[1].replace(/^(一道|菜品|这道菜)\s*/, '').trim();
+  if (!dish) return null;
+  const amount = Number(match[2]);
+  const unit = match[3];
+  let seconds = unit.includes('时') || unit.includes('小') ? amount * 3600 : (unit.includes('秒') ? amount : amount * 60);
+  seconds = Math.max(1, Math.min(86399, Math.round(seconds)));
+  return { dish, durationSeconds: seconds, wasClamped: unit.includes('时') && amount > 23 };
+}
+
+function formatTimerDuration(totalSeconds) {
+  const safe = Math.min(86399, Math.max(0, Math.floor(totalSeconds)));
+  const hours = String(Math.floor(safe / 3600)).padStart(2, '0');
+  const minutes = String(Math.floor((safe % 3600) / 60)).padStart(2, '0');
+  const seconds = String(safe % 60).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function timerStepsFromReply(reply, dish) {
+  const parsed = String(reply || '').split(/\n|。/).map(part => part.replace(/^\s*(?:\d+[.、)、]|[-*])\s*/, '').trim()).filter(part => part.length >= 5 && part.length <= 80);
+  const defaults = [`准备并处理${dish}的食材`, `开火加热，按口感推进${dish}的烹饪`, `加入调味并检查熟度`, `装盘前再确认一次火候与味道`];
+  return [...parsed, ...defaults].slice(0, 4);
+}
+
+function updateCookingTimerDisplay() {
+  const timerEl = document.getElementById('cookingTimer3D');
+  if (!timerEl || !cookingTimerState) return;
+  const elapsed = Math.min(86399, Math.max(0, (Date.now() - cookingTimerState.startedAt) / 1000));
+  document.getElementById('cookingTimerDish').textContent = cookingTimerState.dish;
+  document.getElementById('cookingTimerValue').textContent = formatTimerDuration(elapsed);
+  document.getElementById('cookingTimerStatus').textContent = cookingTimerState.awaitingCompletion ? '预计时间已到 · 等待完成' : '小 AI 会在阶段节点提醒';
+  timerEl.classList.remove('hidden');
+}
+
+function showMiniAiAttention() {
+  openMiniAiPanel();
+  const dock = document.getElementById('miniAiDock');
+  if (dock) {
+    dock.classList.remove('mini-ai-attention');
+    void dock.offsetWidth;
+    dock.classList.add('mini-ai-attention');
+  }
+}
+
+function queueCookingStageNotice() {
+  if (!cookingTimerState || cookingTimerState.awaitingCompletion) return;
+  const step = cookingTimerState.steps[cookingTimerState.stageIndex] || '检查当前火候和熟度';
+  const notice = {
+    prompt: `计时提醒：用户正在做「${cookingTimerState.dish}」，现在进入第 ${cookingTimerState.stageIndex + 1} 个阶段。请先回答用户可能正在问的问题，然后用一句清楚的中文告诉用户下一步怎么做：${step}。不要重置计时器。`,
+    fallback: `⏱️ 「${cookingTimerState.dish}」进入下一阶段：${step}。完成这一步后继续观察火候。`
+  };
+  if (miniAiBusy) miniAiStageQueue.push(notice);
+  else requestCookingStageNotice(notice);
+}
+
+async function requestCookingStageNotice(notice) {
+  const activeTimer = cookingTimerState;
+  showMiniAiAttention();
+  try {
+    const res = await Api.chatKitchenAssistant({
+      message: notice.prompt,
+      history: miniAiHistory.slice(-12),
+      recipe_context: null,
+      memory_summary: null
+    });
+    if (!cookingTimerState || cookingTimerState !== activeTimer) return;
+    const reply = (res.reply || '').trim() || notice.fallback;
+    appendMiniAiMessage(reply, 'assistant', { notice: true });
+    miniAiHistory.push({ role: 'assistant', content: reply });
+  } catch (error) {
+    if (!cookingTimerState || cookingTimerState !== activeTimer) return;
+    appendMiniAiMessage(notice.fallback, 'assistant', { notice: true });
+    miniAiHistory.push({ role: 'assistant', content: notice.fallback });
+  }
+}
+
+async function flushMiniAiStageQueue() {
+  if (miniAiBusy || !miniAiStageQueue.length) return;
+  const notice = miniAiStageQueue.shift();
+  await requestCookingStageNotice(notice);
+  if (!miniAiBusy) await flushMiniAiStageQueue();
+}
+
+function finishTimerAwaitingCompletion() {
+  if (!cookingTimerState || cookingTimerState.awaitingCompletion) return;
+  cookingTimerState.awaitingCompletion = true;
+  updateCookingTimerDisplay();
+  showMiniAiAttention();
+  appendMiniAiMessage(`⏱️ 「${cookingTimerState.dish}」已经达到预计烹饪时间。请确认菜品是否真的完成；完成后点击下面的按钮，计时器才会结束。`, 'assistant', { notice: true, finish: true });
+}
+
+function tickCookingTimer() {
+  if (!cookingTimerState) return;
+  const elapsed = Math.min(86399, Math.max(0, (Date.now() - cookingTimerState.startedAt) / 1000));
+  updateCookingTimerDisplay();
+  if (elapsed >= cookingTimerState.durationSeconds) {
+    finishTimerAwaitingCompletion();
+    return;
+  }
+  const nextStageAt = (cookingTimerState.stageIndex + 1) * cookingTimerState.stageSeconds;
+  if (elapsed >= nextStageAt && cookingTimerState.stageIndex < cookingTimerState.steps.length - 1) {
+    cookingTimerState.stageIndex += 1;
+    queueCookingStageNotice();
+  }
+}
+
+function startCookingTimer(command, initialReply = '') {
+  stopCookingTimer(true);
+  const steps = timerStepsFromReply(initialReply, command.dish);
+  cookingTimerState = {
+    dish: command.dish,
+    durationSeconds: command.durationSeconds,
+    startedAt: Date.now(),
+    stageSeconds: command.durationSeconds / steps.length,
+    stageIndex: 0,
+    steps,
+    awaitingCompletion: false
+  };
+  updateCookingTimerDisplay();
+  cookingTimerInterval = window.setInterval(tickCookingTimer, 1000);
+  showMiniAiAttention();
+  const capTip = command.wasClamped ? '（计时上限为 23 小时 59 分 59 秒）' : '';
+  appendMiniAiMessage(`⏱️ 已开始为「${command.dish}」计时 ${formatTimerDuration(command.durationSeconds)}${capTip}。我会在每个阶段提醒你下一步。`, 'assistant', { notice: true });
+}
+
+function stopCookingTimer(silent = false) {
+  if (cookingTimerInterval) window.clearInterval(cookingTimerInterval);
+  cookingTimerInterval = null;
+  cookingTimerState = null;
+  miniAiStageQueue = [];
+  document.getElementById('cookingTimer3D')?.classList.add('hidden');
+}
+
+function completeCookingTimer() {
+  if (!cookingTimerState) return;
+  const elapsed = Math.min(86399, Math.max(0, (Date.now() - cookingTimerState.startedAt) / 1000));
+  const dish = cookingTimerState.dish;
+  stopCookingTimer();
+  showMiniAiAttention();
+  appendMiniAiMessage(`🎉 大功告成！「${dish}」本次实际计时 ${formatTimerDuration(elapsed)}。趁热享用，记得及时核对食材消耗。`, 'assistant', { notice: true });
+}
+
+async function sendMiniAiMessage(forcedMessage = null) {
+  const input = document.getElementById('miniAiInput');
+  const text = (forcedMessage || input?.value || '').trim();
+  if (!text || miniAiBusy) return;
+  if (!forcedMessage && input) input.value = '';
+  appendMiniAiMessage(text, 'user');
+  miniAiHistory.push({ role: 'user', content: text });
+  const cookingCommand = parseCookingStartCommand(text);
+  miniAiBusy = true;
+  const sendBtn = document.getElementById('miniAiSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+  try {
+    const res = await Api.chatKitchenAssistant({
+      message: text,
+      history: miniAiHistory.slice(-12, -1),
+      recipe_context: null,
+      memory_summary: null
+    });
+    const reply = (res.reply || '').trim() || '我暂时没有生成有效回答，请再问我一次。';
+    appendMiniAiMessage(reply, 'assistant', { notice: res.is_refused });
+    miniAiHistory.push({ role: 'assistant', content: reply });
+    if (res.actions_executed?.length) {
+      await refreshShoppingBadge();
+      await loadPantryItems();
+    }
+    if (cookingCommand) startCookingTimer(cookingCommand, reply);
+  } catch (error) {
+    appendMiniAiMessage(`连接厨房 AI 失败：${error.message || '请稍后重试'}`, 'assistant', { notice: true });
+  } finally {
+    miniAiBusy = false;
+    if (sendBtn) sendBtn.disabled = false;
+    await flushMiniAiStageQueue();
+  }
+}
+
+window.toggleMiniAi = function() {
+  const panel = document.getElementById('miniAiPanel');
+  if (!panel) return;
+  panel.classList.toggle('hidden');
+  if (!panel.classList.contains('hidden')) openMiniAiPanel();
+};
+
+function formatImageRecipeResult(data) {
+  if (!data.is_dish) return data.reply || '这张图片与菜品无关，我无法根据它生成菜谱。';
+  const ingredients = (data.ingredients_needed || []).map(item => `${item.name || '食材'}（${item.amount || '适量'}）`).join('、') || '根据图片推测的常见食材';
+  const steps = (data.cooking_steps || []).map((step, index) => `${index + 1}. ${step}`).join('\n') || '请根据图片中的食材处理后烹饪至熟透。';
+  return `图片识别到：${data.recipe_name}\n难度与时间：${data.difficulty}\n食材：${ingredients}\n步骤：\n${steps}\n大厨提示：${data.chef_tips || '注意火候并确认食材熟透。'}`;
+}
+
+window.handleRecipeImageUpload = async function(event, target = 'chat') {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  const isMini = target === 'mini';
+  const append = (content, role = 'assistant', options = {}) => isMini ? appendMiniAiMessage(content, role, options) : appendChatMessage(role, content, options.notice);
+  append(`📷 正在识别图片：${file.name}`, 'user');
+  if (isMini) miniAiHistory.push({ role: 'user', content: `上传了一张菜品图片：${file.name}` });
+  else chatHistory.push({ role: 'user', content: `上传了一张菜品图片：${file.name}` });
+  try {
+    const data = await Api.recipeFromImage(file);
+    const reply = formatImageRecipeResult(data);
+    append(reply, 'assistant', { notice: !data.is_dish });
+    if (isMini) miniAiHistory.push({ role: 'assistant', content: reply });
+    else {
+      chatHistory.push({ role: 'assistant', content: reply });
+      sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatHistory));
+    }
+  } catch (error) {
+    append(`图片识别失败：${error.message || '请换一张清晰的菜品图片'}`, 'assistant', { notice: true });
+  }
+};
+
+function enableMiniAiDrag() {
+  const dock = document.getElementById('miniAiDock');
+  const bubble = document.getElementById('miniAiBubble');
+  if (!dock || !bubble) return;
+  let dragging = false;
+  let offsetY = 0;
+  bubble.addEventListener('pointerdown', event => {
+    dragging = true;
+    miniAiDragMoved = false;
+    const rect = dock.getBoundingClientRect();
+    offsetY = event.clientY - rect.top;
+    bubble.setPointerCapture?.(event.pointerId);
+  });
+  bubble.addEventListener('pointermove', event => {
+    if (!dragging) return;
+    miniAiDragMoved = true;
+    const panel = document.getElementById('miniAiPanel');
+    const minTop = panel && !panel.classList.contains('hidden') ? Math.min(window.innerHeight - 94, panel.offsetHeight + 24) : 16;
+    const maxTop = Math.max(minTop, window.innerHeight - 98);
+    const top = Math.min(maxTop, Math.max(minTop, event.clientY - offsetY));
+    dock.style.top = `${top}px`;
+    dock.style.bottom = 'auto';
+  });
+  const finishDrag = () => { dragging = false; window.setTimeout(() => { miniAiDragMoved = false; }, 0); };
+  bubble.addEventListener('pointerup', finishDrag);
+  bubble.addEventListener('pointercancel', finishDrag);
+  bubble.addEventListener('click', () => { if (!miniAiDragMoved) window.toggleMiniAi(); });
+}
 
 // 主工作区独立大页面切换
 window.switchMainView = async function(view) {
@@ -170,6 +462,7 @@ function capitalize(str) {
 
 // ==================== 3. 登录认证与状态同步 ====================
 window.showForceAuthModal = function() {
+  setMiniAiVisible(false);
   fridgeItems = [];
   fridge3D?.setItems([]);
   setUpperDoor(false);
@@ -308,6 +601,8 @@ window.logoutUser = function() {
   localStorage.removeItem("freshplate_token");
   localStorage.removeItem("freshplate_role");
   currentUser = null;
+  miniAiHistory = [];
+  stopCookingTimer(true);
   document.getElementById("refrigerationGrid").innerHTML = "";
   document.getElementById("freezerGrid").innerHTML = "";
   document.getElementById("refrigCount").textContent = "0 件食品";
@@ -332,6 +627,7 @@ async function checkAuthAndBootstrap() {
     }
 
     document.getElementById("authModal")?.classList.add("hidden");
+    setMiniAiVisible(true);
 
     const userLabel = document.getElementById("currentUserName");
     const roleBadge = document.getElementById("userRoleBadge");
@@ -1280,7 +1576,7 @@ window.addRecipeBToShoppingList = async function() {
 // 恢复本地存储的历史对话
 function restoreChatMemory() {
   try {
-    const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+    const saved = sessionStorage.getItem(CHAT_STORAGE_KEY);
     if (saved) {
       chatHistory = JSON.parse(saved);
       const container = document.getElementById("chatMessagesStream");
@@ -1303,6 +1599,8 @@ window.clearChatHistoryMemory = function() {
   currentChatRecipeContext = null;
   returnTargetScope = null;
 
+  sessionStorage.removeItem(CHAT_STORAGE_KEY);
+  sessionStorage.removeItem(CHAT_SUMMARY_KEY);
   localStorage.removeItem(CHAT_STORAGE_KEY);
   localStorage.removeItem(CHAT_SUMMARY_KEY);
 
@@ -1439,7 +1737,7 @@ window.sendUserChatMessage = async function(forcedMessage = null) {
   const loadingBubbleId = appendChatLoadingBubble();
 
   try {
-    const currentSummary = localStorage.getItem(CHAT_SUMMARY_KEY) || "";
+    const currentSummary = sessionStorage.getItem(CHAT_SUMMARY_KEY) || "";
 
     const payload = {
       message: text,
@@ -1468,7 +1766,7 @@ window.sendUserChatMessage = async function(forcedMessage = null) {
     if (chatHistory.length > 30) {
       chatHistory = chatHistory.slice(-30);
     }
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatHistory));
+    sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatHistory));
 
     // 4. 双向调度联动刷新：AI 入库/挪动冰箱食材或备菜时，自动刷新冰箱 3D 界面和角标！
     if (res.actions_executed && res.actions_executed.length > 0) {
@@ -2178,6 +2476,24 @@ window.deleteFavorite = async function(id) {
 
 // ==================== 16. 初始化与事件监听 ====================
 window.addEventListener('DOMContentLoaded', async () => {
+  enableMiniAiDrag();
+  document.getElementById('miniAiCloseBtn')?.addEventListener('click', () => document.getElementById('miniAiPanel')?.classList.add('hidden'));
+  document.getElementById('miniAiSendBtn')?.addEventListener('click', () => sendMiniAiMessage());
+  document.getElementById('miniAiInput')?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendMiniAiMessage();
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    sessionStorage.removeItem(CHAT_STORAGE_KEY);
+    sessionStorage.removeItem(CHAT_SUMMARY_KEY);
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+    localStorage.removeItem(CHAT_SUMMARY_KEY);
+    miniAiHistory = [];
+    miniAiStageQueue = [];
+    stopCookingTimer(true);
+  }, { once: true });
   initFridge3D();
   document.getElementById('toggleUpper3D')?.addEventListener('click', () => toggleFridgeDoor('upper'));
   document.getElementById('toggleLower3D')?.addEventListener('click', () => toggleFridgeDoor('lower'));

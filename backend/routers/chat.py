@@ -12,7 +12,7 @@ import re
 import httpx
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, desc
@@ -20,6 +20,7 @@ from backend.database import get_db
 from backend.models import User, ShoppingItem, PantryItem, UserActivity
 from backend.auth import get_current_user
 from backend.services.food_image_service import resolve_food_image
+from backend.services.ai_service import generate_recipe_from_image
 
 router = APIRouter(prefix="/api/chat", tags=["AI 智能厨房对话"])
 
@@ -80,6 +81,31 @@ class ChatRequest(BaseModel):
     history: Optional[List[ChatMessage]] = Field(default=[], max_length=12, description="历史对话上下文")
     recipe_context: Optional[Dict[str, Any]] = Field(default=None, description="从菜谱跳转过来的菜谱上下文")
     memory_summary: Optional[str] = Field(default=None, description="长对话前序压缩记忆摘要")
+
+
+@router.post("/recipe-from-image")
+async def recipe_from_image(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """AI 厨师识别用户上传的菜品图片并生成菜谱。"""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="请上传 JPG、PNG 或 WEBP 菜品图片")
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="图片内容为空")
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="图片不能超过 10MB")
+    try:
+        result = await generate_recipe_from_image(image_bytes, file.filename or "dish.jpg")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"图片识别暂时失败，请稍后重试：{str(exc)[:120]}")
+    if not result.get("is_dish"):
+        return {
+            "is_dish": False,
+            "reply": result.get("reason") or "这张图片与菜品无关，我暂时无法根据它生成菜谱。",
+        }
+    return result
 
 def clean_llm_json(raw_text: str) -> dict:
     text = raw_text.strip()
