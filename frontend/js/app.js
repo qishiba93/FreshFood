@@ -220,16 +220,68 @@ function appendMiniAiMessage(content, role = 'assistant', options = {}) {
   messages.scrollTop = messages.scrollHeight;
 }
 
+function parseChineseNumber(value) {
+  const text = String(value || '').trim();
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
+  if (text === '半') return 0.5;
+  const digits = { 零: 0, 〇: 0, 一: 1, 两: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  const units = { 十: 10, 百: 100, 千: 1000, 万: 10000 };
+  let total = 0;
+  let current = 0;
+  let matched = false;
+  for (const char of text) {
+    if (Object.prototype.hasOwnProperty.call(digits, char)) {
+      current = digits[char];
+      matched = true;
+    } else if (units[char]) {
+      total += (current || 1) * units[char];
+      current = 0;
+      matched = true;
+    }
+  }
+  return matched ? total + current : null;
+}
+
+function parseDurationAmount(amountText, unit) {
+  const amount = parseChineseNumber(amountText);
+  if (!amount) return null;
+  const seconds = unit.includes('时') || unit.includes('小')
+    ? amount * 3600
+    : (unit.includes('秒') ? amount : amount * 60);
+  return { seconds, amount, wasClamped: (unit.includes('时') || unit.includes('小')) && amount > 23 };
+}
+
 function parseCookingStartCommand(text) {
-  const match = String(text || '').match(/(?:现在|我)?\s*开始(?:做|制作|烹饪|煮|炒|炖|蒸)?\s*([^，。,；;\n]+?)\s*(?:预计|需要|用时|耗时|大约|约)?\s*(\d{1,3})\s*(小时|小時|时|分钟|分|秒)/i);
-  if (!match) return null;
-  const dish = match[1].replace(/^(一道|菜品|这道菜)\s*/, '').trim();
+  const source = String(text || '').replace(/\s+/g, ' ').trim();
+  const startMatch = source.match(/(?:现在|我)?\s*(?:开始|准备|打算|要)\s*(?:做|制作|烹饪|煮|炒|炖|蒸)?\s*(?:个|一道|一份)?\s*([^，。,；;\n]+?)(?=\s*(?:预计|需要|用时|耗时|大约|约)|[，。,；;\n]|$)/i);
+  if (!startMatch) return null;
+  const dish = startMatch[1].replace(/^(一道|菜品|这道菜)\s*/, '').trim();
   if (!dish) return null;
-  const amount = Number(match[2]);
-  const unit = match[3];
-  let seconds = unit.includes('时') || unit.includes('小') ? amount * 3600 : (unit.includes('秒') ? amount : amount * 60);
-  seconds = Math.max(1, Math.min(86399, Math.round(seconds)));
-  return { dish, durationSeconds: seconds, wasClamped: unit.includes('时') && amount > 23 };
+
+  const numberPattern = '(\\d{1,3}(?:\\.\\d+)?|[零〇一两二三四五六七八九十百千万半]+)';
+  const unitPattern = '(小时|小時|个小时|时|分钟|分|秒)';
+  const totalMatch = source.match(new RegExp(`(?:预计|需要|用时|耗时|大约|约|总共|一共)\\s*(?:会|约)?\\s*${numberPattern}\\s*${unitPattern}`, 'i'));
+  if (!totalMatch) return null;
+  const duration = parseDurationAmount(totalMatch[1], totalMatch[2]);
+  if (!duration) return null;
+
+  const stageHints = [];
+  const stagePattern = new RegExp(`在\\s*${numberPattern}\\s*${unitPattern}\\s*(?:的时候|时|后)?\\s*(?:提醒我|提示我|告诉我|提醒|提示)?\\s*([^，。,；;\\n]+)`, 'gi');
+  let stageMatch;
+  while ((stageMatch = stagePattern.exec(source))) {
+    const stageDuration = parseDurationAmount(stageMatch[1], stageMatch[2]);
+    const instruction = stageMatch[3].trim();
+    if (stageDuration && instruction) {
+      stageHints.push({ atSeconds: Math.min(86399, Math.max(1, stageDuration.seconds)), instruction });
+    }
+  }
+
+  return {
+    dish,
+    durationSeconds: Math.max(1, Math.min(86399, Math.round(duration.seconds))),
+    wasClamped: duration.wasClamped,
+    stageHints
+  };
 }
 
 function formatTimerDuration(totalSeconds) {
@@ -244,6 +296,18 @@ function timerStepsFromReply(reply, dish) {
   const parsed = String(reply || '').split(/\n|。/).map(part => part.replace(/^\s*(?:\d+[.、)、]|[-*])\s*/, '').trim()).filter(part => part.length >= 5 && part.length <= 80);
   const defaults = [`准备并处理${dish}的食材`, `开火加热，按口感推进${dish}的烹饪`, `加入调味并检查熟度`, `装盘前再确认一次火候与味道`];
   return [...parsed, ...defaults].slice(0, 4);
+}
+
+function buildCookingStageEvents(command, steps) {
+  const explicit = (command.stageHints || []).map(item => ({
+    atSeconds: Math.min(command.durationSeconds, item.atSeconds),
+    instruction: item.instruction
+  }));
+  if (explicit.length) return explicit.sort((a, b) => a.atSeconds - b.atSeconds);
+  return steps.map((step, index) => ({
+    atSeconds: Math.max(1, Math.round(command.durationSeconds * (index + 1) / steps.length)),
+    instruction: step
+  }));
 }
 
 function updateCookingTimerDisplay() {
@@ -266,12 +330,11 @@ function showMiniAiAttention() {
   }
 }
 
-function queueCookingStageNotice() {
+function queueCookingStageNotice(step, stageNumber) {
   if (!cookingTimerState || cookingTimerState.awaitingCompletion) return;
-  const step = cookingTimerState.steps[cookingTimerState.stageIndex] || '检查当前火候和熟度';
   const notice = {
-    prompt: `计时提醒：用户正在做「${cookingTimerState.dish}」，现在进入第 ${cookingTimerState.stageIndex + 1} 个阶段。请先回答用户可能正在问的问题，然后用一句清楚的中文告诉用户下一步怎么做：${step}。不要重置计时器。`,
-    fallback: `⏱️ 「${cookingTimerState.dish}」进入下一阶段：${step}。完成这一步后继续观察火候。`
+    prompt: `计时提醒：用户正在做「${cookingTimerState.dish}」，现在进入第 ${stageNumber || cookingTimerState.stageIndex + 1} 个阶段。请先回答用户可能正在问的问题，然后用一句清楚的中文告诉用户下一步怎么做：${step || '检查当前火候和熟度'}。不要重置计时器。`,
+    fallback: `⏱️ 「${cookingTimerState.dish}」进入下一阶段：${step || '检查当前火候和熟度'}。完成这一步后继续观察火候。`
   };
   if (miniAiBusy) miniAiStageQueue.push(notice);
   else requestCookingStageNotice(notice);
@@ -321,10 +384,11 @@ function tickCookingTimer() {
     finishTimerAwaitingCompletion();
     return;
   }
-  const nextStageAt = (cookingTimerState.stageIndex + 1) * cookingTimerState.stageSeconds;
-  if (elapsed >= nextStageAt && cookingTimerState.stageIndex < cookingTimerState.steps.length - 1) {
+  while (cookingTimerState.stageIndex < cookingTimerState.stageEvents.length) {
+    const event = cookingTimerState.stageEvents[cookingTimerState.stageIndex];
+    if (elapsed < event.atSeconds) break;
     cookingTimerState.stageIndex += 1;
-    queueCookingStageNotice();
+    queueCookingStageNotice(event.instruction, cookingTimerState.stageIndex);
   }
 }
 
@@ -335,9 +399,9 @@ function startCookingTimer(command, initialReply = '') {
     dish: command.dish,
     durationSeconds: command.durationSeconds,
     startedAt: Date.now(),
-    stageSeconds: command.durationSeconds / steps.length,
     stageIndex: 0,
     steps,
+    stageEvents: buildCookingStageEvents(command, steps),
     awaitingCompletion: false
   };
   updateCookingTimerDisplay();
@@ -372,6 +436,7 @@ async function sendMiniAiMessage(forcedMessage = null) {
   appendMiniAiMessage(text, 'user');
   miniAiHistory.push({ role: 'user', content: text });
   const cookingCommand = parseCookingStartCommand(text);
+  if (cookingCommand) startCookingTimer(cookingCommand);
   miniAiBusy = true;
   const sendBtn = document.getElementById('miniAiSendBtn');
   if (sendBtn) sendBtn.disabled = true;
@@ -389,7 +454,6 @@ async function sendMiniAiMessage(forcedMessage = null) {
       await refreshShoppingBadge();
       await loadPantryItems();
     }
-    if (cookingCommand) startCookingTimer(cookingCommand, reply);
   } catch (error) {
     appendMiniAiMessage(`连接厨房 AI 失败：${error.message || '请稍后重试'}`, 'assistant', { notice: true });
   } finally {

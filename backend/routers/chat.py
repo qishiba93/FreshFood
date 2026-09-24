@@ -56,6 +56,11 @@ KITCHEN_ASSISTANT_SYSTEM_PROMPT = """你是一名精通中华八大菜系、食�
    - name: 目标食材名（若用户使用代词如“它/这个/放到下层”，需结合前序对话找出正在讨论的食材名）
    - target_location: "refrigeration" (挪到上层/冷藏) 或 "freezer" (挪到下层/冷冻)
    - new_shelf_life_days: 转移到新温区后的重置保质天数(冷藏一般2-3天，冷冻一般60天)
+6. update_pantry_item: 用户要直接修改冰箱内已有食材的保质期：
+   - name: 食材名称（必须使用冰箱中已有食材名）
+   - shelf_life_days: 从现在起重新设置的保质期天数（数值，允许小数）
+
+【计时指令】：用户说“开始/准备/打算做某道菜，预计 X 分钟/小时/秒”时，这是厨房服务范围内的做菜计时需求，必须正常回答，不得设置 is_refused=true。用户提出“在 X 分钟时提醒我做某一步”时，也要在 reply 中确认提醒内容。
 
 【格式硬性规范】：
 必须输出纯合法 JSON 格式，严禁包含任何 Markdown 标记（如 ```json 等），且 reply 字段绝对不能为空字符串：
@@ -67,7 +72,8 @@ KITCHEN_ASSISTANT_SYSTEM_PROMPT = """你是一名精通中华八大菜系、食�
     "remove_shopping": [],
     "clear_all_shopping": false,
     "store_to_pantry": [],
-    "move_pantry_item": []
+    "move_pantry_item": [],
+    "update_pantry_item": []
   }
 }
 """
@@ -156,6 +162,7 @@ def build_history_messages(history: Optional[List[ChatMessage]], user_input: str
                     "clear_all_shopping": False,
                     "store_to_pantry": [],
                     "move_pantry_item": [],
+                    "update_pantry_item": [],
                 },
             }, ensure_ascii=False)
         normalized.append({"role": item.role, "content": content})
@@ -170,6 +177,23 @@ def extract_reply(parsed: dict) -> str:
         or parsed.get("answer")
         or ""
     ).strip()
+
+
+def extract_direct_shelf_life_update(user_input: str) -> Optional[dict]:
+    """Recognize the common direct command even if the model omits its action JSON."""
+    patterns = (
+        r"(?:把|将)\s*([^，。,；;\n]+?)\s*(?:的)?保质期\s*(?:改成|改为|调整为|设置为|设为|更新为|延长到|缩短为)?\s*(\d+(?:\.\d+)?)\s*天",
+        r"(?:修改|调整|设置|更新)\s*([^，。,；;\n]+?)\s*(?:的)?保质期\s*(?:为|到|成)?\s*(\d+(?:\.\d+)?)\s*天",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, user_input, re.IGNORECASE)
+        if not match:
+            continue
+        name = re.sub(r"^(?:食材|冰箱里的|冰箱中已有的)\s*", "", match.group(1)).strip()
+        days = float(match.group(2))
+        if name and 0 < days <= 3650:
+            return {"name": name, "shelf_life_days": days}
+    return None
 
 @router.post("/kitchen-assistant")
 async def chat_with_kitchen_assistant(
@@ -243,6 +267,19 @@ async def chat_with_kitchen_assistant(
 
     is_refused = parsed.get("is_refused", False)
     actions = parsed.get("actions", {}) or {}
+
+    # 保质期修改是确定性的本地数据库操作。即使模型漏掉 action JSON，
+    # 也根据用户明确的中文指令补齐动作，避免只返回一段无法执行的说明。
+    direct_shelf_update = extract_direct_shelf_life_update(user_input)
+    if direct_shelf_update:
+        actions = dict(actions) if isinstance(actions, dict) else {}
+        update_items = list(actions.get("update_pantry_item", []) or [])
+        if not any(str(item.get("name") or "").strip() == direct_shelf_update["name"] for item in update_items if isinstance(item, dict)):
+            update_items.append(direct_shelf_update)
+        actions["update_pantry_item"] = update_items
+        if is_refused:
+            is_refused = False
+            reply_text = f"好的，我来把「{direct_shelf_update['name']}」的保质期调整为 {direct_shelf_update['shelf_life_days']:g} 天。"
 
     # 明确告知用户上游异常，避免用“已处理”掩盖失败。
     if not reply_text:
@@ -383,6 +420,40 @@ async def chat_with_kitchen_assistant(
 
             if moved_names:
                 executed_summary.append(" | ".join(moved_names))
+
+        # F. 直接修改已有食材的保质期（不改变温区）
+        update_items = actions.get("update_pantry_item", []) or []
+        if update_items:
+            updated_names = []
+            for update in update_items:
+                target_food = str(update.get("name") or "").strip()
+                if not target_food:
+                    continue
+                try:
+                    shelf_days = float(update.get("shelf_life_days"))
+                except (TypeError, ValueError):
+                    continue
+                if shelf_days <= 0 or shelf_days > 3650:
+                    continue
+
+                p_query = (
+                    select(PantryItem)
+                    .where(
+                        PantryItem.user_id == user.id,
+                        PantryItem.name.like(f"%{target_food}%"),
+                    )
+                    .order_by(desc(PantryItem.id))
+                )
+                result = await db.execute(p_query)
+                item_to_update = result.scalars().first()
+                if item_to_update:
+                    item_to_update.expire_at = now + timedelta(days=shelf_days)
+                    updated_names.append(f"「{item_to_update.name}」保质期已更新为 {shelf_days:g} 天")
+                else:
+                    updated_names.append(f"未在冰箱中找到「{target_food}」，保质期未修改")
+
+            if updated_names:
+                executed_summary.append(" | ".join(updated_names))
 
         if executed_summary:
             db.add(UserActivity(
