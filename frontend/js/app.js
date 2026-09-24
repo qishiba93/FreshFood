@@ -664,7 +664,9 @@ function enableMiniAiDrag() {
   if (!dock || !bubble) return;
   let dragging = false;
   let offsetY = 0;
+  bubble.addEventListener('dragstart', event => event.preventDefault());
   bubble.addEventListener('pointerdown', event => {
+    event.preventDefault();
     dragging = true;
     miniAiDragMoved = false;
     const rect = dock.getBoundingClientRect();
@@ -673,6 +675,7 @@ function enableMiniAiDrag() {
   });
   bubble.addEventListener('pointermove', event => {
     if (!dragging) return;
+    event.preventDefault();
     miniAiDragMoved = true;
     const bubbleHeight = dock.offsetHeight || 82;
     const minTop = 12;
