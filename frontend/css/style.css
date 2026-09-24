@@ -93,6 +93,23 @@
 }
 .mini-ai-dock.hidden { display: none; }
 .mini-ai-dock.mini-ai-attention .mini-ai-bubble { animation: mini-ai-attention 1s ease-in-out 3; }
+.mini-ai-timer {
+  min-width: 158px;
+  padding: 9px 12px 10px;
+  border: 1px solid rgba(179, 228, 213, .85);
+  border-radius: 13px 13px 8px 8px;
+  color: #ddfff3;
+  background: linear-gradient(145deg, rgba(14, 75, 69, .96), rgba(22, 126, 99, .92));
+  box-shadow: 0 8px 0 rgba(11, 55, 53, .24), 0 12px 24px rgba(28, 74, 69, .24), inset 0 1px 0 rgba(255, 255, 255, .24);
+  transform: perspective(500px) rotateX(6deg) rotateY(-4deg);
+  text-align: center;
+  pointer-events: none;
+}
+.mini-ai-timer.hidden { display: none; }
+.mini-ai-timer-label, .mini-ai-timer-status { display: block; font-size: 9px; opacity: .84; }
+.mini-ai-timer strong { display: block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; font-size: 11px; }
+.mini-ai-timer-value { display: block; margin: 3px 0 1px; color: #fff; font: 800 20px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .04em; }
+.mini-ai-timer-status { color: #b8ffe8; }
 .mini-ai-bubble {
   position: relative;
   width: 82px;
@@ -184,6 +201,8 @@
   .mini-ai-bubble { width: 70px; height: 70px; border-radius: 22px; }
   .mini-ai-avatar-art { width: 58px; height: 58px; border-radius: 18px; }
   .mini-ai-panel { height: min(460px, calc(100vh - 125px)); }
+  .mini-ai-timer { min-width: 138px; padding: 8px 10px; }
+  .mini-ai-timer-value { font-size: 17px; }
   .cooking-timer-3d { top: 9px; right: 9px; }
   .cooking-timer-face { min-width: 128px; padding: 8px 10px; }
   .cooking-timer-value { font-size: 17px; }

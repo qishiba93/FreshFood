@@ -420,6 +420,12 @@
 
   <!-- 用户端常驻小 AI；管理员页面使用独立 admin.html，不会挂载此组件 -->
   <div id="miniAiDock" class="mini-ai-dock hidden" aria-live="polite">
+    <div id="miniAiTimer" class="mini-ai-timer hidden" aria-live="polite">
+      <span class="mini-ai-timer-label">烹饪计时</span>
+      <strong id="miniAiTimerDish">--</strong>
+      <span id="miniAiTimerValue" class="mini-ai-timer-value">00:00:00</span>
+      <span id="miniAiTimerStatus" class="mini-ai-timer-status">计时准备中</span>
+    </div>
     <section id="miniAiPanel" class="mini-ai-panel hidden" aria-label="小 AI 对话框">
       <header class="mini-ai-panel-header">
         <div class="flex items-center gap-2 min-w-0">

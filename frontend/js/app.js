@@ -311,13 +311,25 @@ function buildCookingStageEvents(command, steps) {
 }
 
 function updateCookingTimerDisplay() {
-  const timerEl = document.getElementById('cookingTimer3D');
-  if (!timerEl || !cookingTimerState) return;
+  if (!cookingTimerState) return;
   const elapsed = Math.min(86399, Math.max(0, (Date.now() - cookingTimerState.startedAt) / 1000));
-  document.getElementById('cookingTimerDish').textContent = cookingTimerState.dish;
-  document.getElementById('cookingTimerValue').textContent = formatTimerDuration(elapsed);
-  document.getElementById('cookingTimerStatus').textContent = cookingTimerState.awaitingCompletion ? '预计时间已到 · 等待完成' : '小 AI 会在阶段节点提醒';
-  timerEl.classList.remove('hidden');
+  const value = formatTimerDuration(elapsed);
+  const status = cookingTimerState.awaitingCompletion ? '预计时间已到 · 等待完成' : '小 AI 会在阶段节点提醒';
+  const displays = [
+    ['cookingTimer3D', 'cookingTimerDish', 'cookingTimerValue', 'cookingTimerStatus'],
+    ['miniAiTimer', 'miniAiTimerDish', 'miniAiTimerValue', 'miniAiTimerStatus']
+  ];
+  for (const [containerId, dishId, valueId, statusId] of displays) {
+    const container = document.getElementById(containerId);
+    if (!container) continue;
+    const dish = document.getElementById(dishId);
+    const timerValue = document.getElementById(valueId);
+    const timerStatus = document.getElementById(statusId);
+    if (dish) dish.textContent = cookingTimerState.dish;
+    if (timerValue) timerValue.textContent = value;
+    if (timerStatus) timerStatus.textContent = status;
+    container.classList.remove('hidden');
+  }
 }
 
 function showMiniAiAttention() {
@@ -417,6 +429,7 @@ function stopCookingTimer(silent = false) {
   cookingTimerState = null;
   miniAiStageQueue = [];
   document.getElementById('cookingTimer3D')?.classList.add('hidden');
+  document.getElementById('miniAiTimer')?.classList.add('hidden');
 }
 
 function completeCookingTimer() {
