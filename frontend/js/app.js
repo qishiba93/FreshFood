@@ -109,7 +109,7 @@ let chatHistory = [];
 let currentChatRecipeContext = null;
 let returnTargetScope = null;
 
-// 小 AI 与当前页面的烹饪计时状态只保存在内存中，关闭网页即自动清空。
+// 小助手与当前页面的烹饪计时状态只保存在内存中，关闭网页即自动清空。
 let miniAiHistory = [];
 let miniAiBusy = false;
 let miniAiStageQueue = [];
@@ -367,7 +367,7 @@ function updateCookingTimerDisplay() {
   if (!cookingTimerState) return;
   const elapsed = Math.min(86399, Math.max(0, (Date.now() - cookingTimerState.startedAt) / 1000));
   const value = formatTimerDuration(elapsed);
-  const status = cookingTimerState.awaitingCompletion ? '预计时间已到 · 等待完成' : '小 AI 会在阶段节点提醒';
+  const status = cookingTimerState.awaitingCompletion ? '预计时间已到 · 等待完成' : '小助手会在阶段节点提醒';
   const displays = [['miniAiTimer', 'miniAiTimerDish', 'miniAiTimerValue', 'miniAiTimerStatus']];
   for (const [containerId, dishId, valueId, statusId] of displays) {
     const container = document.getElementById(containerId);

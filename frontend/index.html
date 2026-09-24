@@ -410,7 +410,7 @@
     </main>
   </div>
 
-  <!-- 用户端常驻小 AI；管理员页面使用独立 admin.html，不会挂载此组件 -->
+  <!-- 用户端常驻小助手；管理员页面使用独立 admin.html，不会挂载此组件 -->
   <div id="miniAiDock" class="mini-ai-dock hidden" aria-live="polite">
     <div id="miniAiTimer" class="mini-ai-timer hidden" aria-live="polite">
       <span class="mini-ai-timer-label">烹饪计时</span>
@@ -418,13 +418,13 @@
       <span id="miniAiTimerValue" class="mini-ai-timer-value">00:00:00</span>
       <span id="miniAiTimerStatus" class="mini-ai-timer-status">计时准备中</span>
     </div>
-    <section id="miniAiPanel" class="mini-ai-panel hidden" aria-label="小 AI 对话框">
+    <section id="miniAiPanel" class="mini-ai-panel hidden" aria-label="小助手对话框">
       <header class="mini-ai-panel-header">
         <div class="flex items-center gap-2 min-w-0">
           <span class="mini-ai-avatar-art mini-ai-avatar-small" aria-hidden="true"><img src="/assets/mini-ai-chef.png" alt="" onerror="this.onerror=null;this.src='assets/mini-ai-chef.png';" /></span>
           <div class="min-w-0"><strong>小助手</strong><span>随时帮你看菜、做菜和计时</span></div>
         </div>
-        <button type="button" id="miniAiCloseBtn" class="mini-ai-close" aria-label="关闭小 AI 对话框" title="关闭">×</button>
+        <button type="button" id="miniAiCloseBtn" class="mini-ai-close" aria-label="关闭小助手对话框" title="关闭">×</button>
       </header>
       <div id="miniAiMessages" class="mini-ai-messages custom-scrollbar">
         <div class="mini-ai-message assistant">嗨，我在这里。可以问我做菜，也可以说“开始做番茄炒蛋，预计 20 分钟”。</div>
@@ -432,11 +432,11 @@
       <div class="mini-ai-composer">
         <input type="file" id="miniAiRecipeImageInput" accept="image/png,image/jpeg,image/webp" class="hidden" onchange="handleRecipeImageUpload(event, 'mini')" />
         <button type="button" onclick="document.getElementById('miniAiRecipeImageInput').click()" class="mini-ai-tool" title="上传菜品图片">📷</button>
-        <input type="text" id="miniAiInput" placeholder="问小 AI..." autocomplete="off" />
+        <input type="text" id="miniAiInput" placeholder="问小助手..." autocomplete="off" />
         <button type="button" id="miniAiSendBtn" class="mini-ai-send" title="发送">↑</button>
       </div>
     </section>
-    <button type="button" id="miniAiBubble" class="mini-ai-bubble" aria-label="打开小 AI 对话框" title="打开小 AI">
+    <button type="button" id="miniAiBubble" class="mini-ai-bubble" aria-label="打开小助手对话框" title="打开小助手">
       <span class="mini-ai-avatar-art" aria-hidden="true"><img src="/assets/mini-ai-chef.png" alt="" onerror="this.onerror=null;this.src='assets/mini-ai-chef.png';" /></span>
       <span class="mini-ai-bubble-label">小助手</span>
     </button>
