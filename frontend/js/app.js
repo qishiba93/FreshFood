@@ -294,6 +294,28 @@ function parseDurationAmount(amountText, unit) {
   return { seconds, amount, wasClamped: (unit.includes('时') || unit.includes('小')) && amount > 23 };
 }
 
+function parseDurationExpression(expression) {
+  const tokenPattern = /(\d{1,3}(?:\.\d+)?|[零〇一两二三四五六七八九十百千万半]+)\s*(个小时|小时|小時|时|分钟|分|秒)/gi;
+  const parts = [...String(expression || '').matchAll(tokenPattern)];
+  if (!parts.length) return null;
+  let seconds = 0;
+  let wasClamped = false;
+  for (const part of parts) {
+    const parsed = parseDurationAmount(part[1], part[2]);
+    if (!parsed) return null;
+    seconds += parsed.seconds;
+    wasClamped = wasClamped || parsed.wasClamped;
+  }
+  return { seconds, wasClamped };
+}
+
+function durationPatterns() {
+  const number = '(?:\\d{1,3}(?:\\.\\d+)?|[零〇一两二三四五六七八九十百千万半]+)';
+  const unit = '(?:个小时|小时|小時|时|分钟|分|秒)';
+  const expression = `${number}\\s*${unit}(?:\\s*${number}\\s*${unit})?`;
+  return { number, unit, expression };
+}
+
 function parseCookingStartCommand(text) {
   const source = String(text || '').replace(/\s+/g, ' ').trim();
   const startMatch = source.match(/(?:^|[，。,；;\s])(?:我)?\s*(?:(?:现在|马上|准备|打算|想|想要|要|正在|再|再次|重新|继续)\s*)?(?:开始\s*)?(?:做|制作|烹饪|煮|炒|炖|蒸|焖|烤|煎|煲)\s*(?:个|一道|一份)?\s*([^，。,；;:\n]+?)(?=\s*(?:预计|需要|用时|耗时|大约|约|总共|一共)|[，。,；;:\n]|$)/i);
@@ -303,20 +325,19 @@ function parseCookingStartCommand(text) {
 
   const numberPattern = '(\\d{1,3}(?:\\.\\d+)?|[零〇一两二三四五六七八九十百千万半]+)';
   const unitPattern = '(个小时|小时|小時|时|分钟|分|秒)';
+  const { expression: durationExpressionPattern } = durationPatterns();
   const durationLabel = '(?:预计|需要|用时|耗时|大约|约|总共|一共)\\s*(?:会|约)?\\s*';
-  const totalMatch = source.match(new RegExp(`${durationLabel}${numberPattern}\\s*${unitPattern}`, 'i'));
-  let durationParts = totalMatch ? [totalMatch[1], totalMatch[2]] : null;
-  if (!durationParts) {
-    const candidates = [...source.matchAll(new RegExp(`${numberPattern}\\s*${unitPattern}`, 'gi'))]
-      .map(match => ({ amount: match[1], unit: match[2], duration: parseDurationAmount(match[1], match[2]) }))
+  const totalMatch = source.match(new RegExp(`${durationLabel}(${durationExpressionPattern})`, 'i'));
+  let duration = totalMatch ? parseDurationExpression(totalMatch[1]) : null;
+  if (!duration) {
+    const candidates = [...source.matchAll(new RegExp(`(${durationExpressionPattern})`, 'gi'))]
+      .map(match => ({ duration: parseDurationExpression(match[1]) }))
       .filter(item => item.duration);
     // 没有“预计/需要”等关键词时，取最长的一段作为总时长，避免把阶段提醒的短时间当成总时长。
     const fallback = candidates.sort((a, b) => b.duration.seconds - a.duration.seconds)[0];
     if (!fallback) return null;
-    durationParts = [fallback.amount, fallback.unit];
+    duration = fallback.duration;
   }
-  const duration = parseDurationAmount(durationParts[0], durationParts[1]);
-  if (!duration) return null;
 
   const stageHints = [];
   const stagePattern = new RegExp(`(?:在\\s*)?${numberPattern}\\s*${unitPattern}\\s*(?:(?:的时候|时|后)\\s*)?(?:提醒我|提示我|告诉我|提醒|提示)\\s*([^，。,；;\\n]+)`, 'gi');
@@ -335,6 +356,54 @@ function parseCookingStartCommand(text) {
     wasClamped: duration.wasClamped,
     stageHints
   };
+}
+
+function inferDishFromSchedule(text, fallback = '当前菜品') {
+  const source = String(text || '').replace(/\s+/g, ' ').trim();
+  const match = source.match(/(?:规划|安排|设置)\s*([^，。:：\n]{2,24}?)(?:的(?:计时|提醒|时间))/i);
+  if (match?.[1]) return match[1].replace(/^(?:好嘞|好的|已为您)/, '').trim();
+  return fallback;
+}
+
+function parseCookingSchedule(text, fallbackDish = '当前菜品') {
+  const source = String(text || '').replace(/\r/g, '');
+  const { expression } = durationPatterns();
+  const linePattern = new RegExp(
+    `^\\s*(?:[⏰⏱️🕐🕑🕒🕓🕔🕕🕖🕗🕘🕙🕚🕛]\\s*)?(${expression})(?:\\s*(?:-|~|～|至|到)\\s*(${expression}))?\\s*(?:后|时|的时候)?\\s*(?:[：:,，]\\s*)?(?:提醒(?:我|您)?|提示(?:我|您)?|告诉(?:我|您)?)?\\s*(.+?)\\s*$`,
+    'i'
+  );
+  const stageHints = [];
+  for (const rawLine of source.split('\n')) {
+    const line = rawLine.replace(/^\s*(?:[-*•]|\d+[.、)])\s*/, '').trim();
+    if (!line) continue;
+    const match = line.match(linePattern);
+    if (!match) continue;
+    const end = parseDurationExpression(match[2] || match[1]);
+    const instruction = match[3].replace(/^[：:,，\s]+/, '').trim();
+    if (end && instruction && !/^(?:后|时|的时候)$/.test(instruction)) {
+      stageHints.push({ atSeconds: Math.min(86399, Math.max(1, end.seconds)), instruction });
+    }
+  }
+
+  const totalMatches = [...source.matchAll(new RegExp(`(?:总耗时|总时长|预计用时|预计时长|大约需要|约需)\\s*(?:约|为|是|共)?\\s*(${expression})`, 'gi'))];
+  const explicitTotals = totalMatches
+    .map(match => parseDurationExpression(match[1]))
+    .filter(Boolean);
+  const maxStage = stageHints.reduce((max, item) => Math.max(max, item.atSeconds), 0);
+  const explicitTotal = explicitTotals.reduce((max, item) => Math.max(max, item.seconds), 0);
+  const durationSeconds = Math.min(86399, Math.max(maxStage, explicitTotal));
+  if (!durationSeconds) return null;
+  const dish = inferDishFromSchedule(source, fallbackDish);
+  return {
+    dish,
+    durationSeconds,
+    wasClamped: explicitTotals.some(item => item.seconds > 86399),
+    stageHints
+  };
+}
+
+function shouldSetCookingTimer(text) {
+  return /设置(?:一个)?计时(?:提醒)?|开始计时|帮我计时|定时提醒|按这个时间提醒/i.test(String(text || ''));
 }
 
 function formatTimerDuration(totalSeconds) {
@@ -515,6 +584,11 @@ async function sendMiniAiMessage(forcedMessage = null) {
     const reply = (res.reply || '').trim() || '我暂时没有生成有效回答，请再问我一次。';
     appendMiniAiMessage(reply, 'assistant', { notice: res.is_refused });
     miniAiHistory.push({ role: 'assistant', content: reply });
+    if (!cookingCommand && shouldSetCookingTimer(text)) {
+      const scheduleSource = [reply, ...miniAiHistory.slice(-6).map(item => item.content)].join('\n');
+      const schedule = parseCookingSchedule(scheduleSource);
+      if (schedule) startCookingTimer(schedule, reply);
+    }
     if (res.actions_executed?.length) {
       await refreshShoppingBadge();
       await loadPantryItems();
