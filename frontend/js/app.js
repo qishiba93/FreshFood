@@ -419,7 +419,7 @@ function parseCookingSchedule(text, fallbackDish = '当前菜品') {
 }
 
 function shouldSetCookingTimer(text) {
-  return /设置(?:一个)?计时(?:提醒)?|开始计时|帮我计时|定时提醒|按这个时间提醒/i.test(String(text || ''));
+  return /设置(?:一个)?计时(?:提醒)?|开始计时|帮我计时|定时提醒|按这个时间提醒|到点提醒|到时间提醒|提醒我(?:在|于|到|做)|给(?:我)?(?:一个|个)?时间|安排(?:一个)?时间|时间表/i.test(String(text || ''));
 }
 
 function formatTimerDuration(totalSeconds) {
