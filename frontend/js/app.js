@@ -154,11 +154,15 @@ function setMiniAiVisible(visible) {
 function placeMiniAiPanel() {
   const dock = document.getElementById('miniAiDock');
   const panel = document.getElementById('miniAiPanel');
-  if (!dock || !panel || panel.classList.contains('hidden') || dock.classList.contains('hidden')) return;
+  if (!dock || dock.classList.contains('hidden')) return;
+  if (!panel || panel.classList.contains('hidden')) {
+    placeMiniAiTimer();
+    return;
+  }
 
   const padding = 12;
   const gap = 10;
-  const bubbleRect = dock.getBoundingClientRect();
+  const bubbleRect = document.getElementById('miniAiBubble')?.getBoundingClientRect() || dock.getBoundingClientRect();
   const panelWidth = panel.offsetWidth;
   const panelHeight = panel.offsetHeight;
   const maxLeft = Math.max(padding, window.innerWidth - panelWidth - padding);
@@ -174,6 +178,45 @@ function placeMiniAiPanel() {
   panel.style.top = `${top}px`;
   panel.style.right = 'auto';
   panel.style.bottom = 'auto';
+  placeMiniAiTimer();
+}
+
+function placeMiniAiTimer() {
+  const timer = document.getElementById('miniAiTimer');
+  const panel = document.getElementById('miniAiPanel');
+  const dock = document.getElementById('miniAiDock');
+  if (!timer || !dock) return;
+  if (timer.classList.contains('hidden') || dock.classList.contains('hidden')) {
+    timer.style.position = '';
+    timer.style.left = '';
+    timer.style.top = '';
+    timer.style.right = '';
+    timer.style.bottom = '';
+    return;
+  }
+  if (!panel || panel.classList.contains('hidden')) {
+    timer.style.position = '';
+    timer.style.left = '';
+    timer.style.top = '';
+    timer.style.right = '';
+    timer.style.bottom = '';
+    return;
+  }
+  const padding = 12;
+  const gap = 10;
+  const panelRect = panel.getBoundingClientRect();
+  const timerWidth = timer.offsetWidth;
+  const timerHeight = timer.offsetHeight;
+  const left = Math.min(
+    Math.max(padding, window.innerWidth - timerWidth - padding),
+    Math.max(padding, panelRect.right - timerWidth)
+  );
+  const top = Math.max(padding, panelRect.top - timerHeight - gap);
+  timer.style.position = 'fixed';
+  timer.style.left = `${left}px`;
+  timer.style.top = `${top}px`;
+  timer.style.right = 'auto';
+  timer.style.bottom = 'auto';
 }
 
 function keepMiniAiDockInViewport() {
@@ -315,10 +358,7 @@ function updateCookingTimerDisplay() {
   const elapsed = Math.min(86399, Math.max(0, (Date.now() - cookingTimerState.startedAt) / 1000));
   const value = formatTimerDuration(elapsed);
   const status = cookingTimerState.awaitingCompletion ? '预计时间已到 · 等待完成' : '小 AI 会在阶段节点提醒';
-  const displays = [
-    ['cookingTimer3D', 'cookingTimerDish', 'cookingTimerValue', 'cookingTimerStatus'],
-    ['miniAiTimer', 'miniAiTimerDish', 'miniAiTimerValue', 'miniAiTimerStatus']
-  ];
+  const displays = [['miniAiTimer', 'miniAiTimerDish', 'miniAiTimerValue', 'miniAiTimerStatus']];
   for (const [containerId, dishId, valueId, statusId] of displays) {
     const container = document.getElementById(containerId);
     if (!container) continue;
@@ -330,6 +370,7 @@ function updateCookingTimerDisplay() {
     if (timerStatus) timerStatus.textContent = status;
     container.classList.remove('hidden');
   }
+  placeMiniAiTimer();
 }
 
 function showMiniAiAttention() {
@@ -428,8 +469,8 @@ function stopCookingTimer(silent = false) {
   cookingTimerInterval = null;
   cookingTimerState = null;
   miniAiStageQueue = [];
-  document.getElementById('cookingTimer3D')?.classList.add('hidden');
   document.getElementById('miniAiTimer')?.classList.add('hidden');
+  placeMiniAiTimer();
 }
 
 function completeCookingTimer() {
@@ -481,6 +522,7 @@ window.toggleMiniAi = function() {
   if (!panel) return;
   panel.classList.toggle('hidden');
   if (!panel.classList.contains('hidden')) openMiniAiPanel();
+  else placeMiniAiPanel();
 };
 
 function formatImageRecipeResult(data) {
@@ -2597,7 +2639,10 @@ window.deleteFavorite = async function(id) {
 // ==================== 16. 初始化与事件监听 ====================
 window.addEventListener('DOMContentLoaded', async () => {
   enableMiniAiDrag();
-  document.getElementById('miniAiCloseBtn')?.addEventListener('click', () => document.getElementById('miniAiPanel')?.classList.add('hidden'));
+  document.getElementById('miniAiCloseBtn')?.addEventListener('click', () => {
+    document.getElementById('miniAiPanel')?.classList.add('hidden');
+    placeMiniAiPanel();
+  });
   document.getElementById('miniAiSendBtn')?.addEventListener('click', () => sendMiniAiMessage());
   document.getElementById('miniAiInput')?.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey) {

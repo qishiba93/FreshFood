@@ -130,14 +130,6 @@
           <section id="fridge3DSection" class="fridge-scene-section" hidden aria-label="三维双门冰箱">
             <div class="fridge-scene-heading"><span><span class="fridge-live-dot"></span>FreshPlate</span><span class="fridge-model-label">拖动旋转 · 鼠标悬停实时查看保质期</span></div>
             <div id="fridge3DCanvas" class="fridge-canvas"></div>
-            <div id="cookingTimer3D" class="cooking-timer-3d hidden" aria-live="polite">
-              <div class="cooking-timer-face">
-                <span class="cooking-timer-label">正在烹饪</span>
-                <strong id="cookingTimerDish">--</strong>
-                <span id="cookingTimerValue" class="cooking-timer-value">00:00:00</span>
-                <span id="cookingTimerStatus" class="cooking-timer-status">计时准备中</span>
-              </div>
-            </div>
 
             <!-- 3D 控制栏 (包含左右、上下平移与缩放) -->
             <div class="fridge-scene-controls">
@@ -429,7 +421,7 @@
     <section id="miniAiPanel" class="mini-ai-panel hidden" aria-label="小 AI 对话框">
       <header class="mini-ai-panel-header">
         <div class="flex items-center gap-2 min-w-0">
-          <span class="mini-ai-avatar-art mini-ai-avatar-small" aria-hidden="true"></span>
+          <span class="mini-ai-avatar-art mini-ai-avatar-small" aria-hidden="true"><img src="/assets/mini-ai-chef.png" alt="" onerror="this.onerror=null;this.src='assets/mini-ai-chef.png';" /></span>
           <div class="min-w-0"><strong>小智鲜</strong><span>随时帮你看菜、做菜和计时</span></div>
         </div>
         <button type="button" id="miniAiCloseBtn" class="mini-ai-close" aria-label="关闭小 AI 对话框" title="关闭">×</button>
@@ -445,7 +437,7 @@
       </div>
     </section>
     <button type="button" id="miniAiBubble" class="mini-ai-bubble" aria-label="打开小 AI 对话框" title="打开小 AI">
-      <span class="mini-ai-avatar-art" aria-hidden="true"></span>
+      <span class="mini-ai-avatar-art" aria-hidden="true"><img src="/assets/mini-ai-chef.png" alt="" onerror="this.onerror=null;this.src='assets/mini-ai-chef.png';" /></span>
       <span class="mini-ai-bubble-label">小 AI</span>
     </button>
   </div>
