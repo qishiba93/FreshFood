@@ -319,7 +319,7 @@ function parseCookingStartCommand(text) {
   if (!duration) return null;
 
   const stageHints = [];
-  const stagePattern = new RegExp(`(?:在\\s*)?${numberPattern}\\s*${unitPattern}\\s*(?:的时候|时|后)\\s*(?:提醒我|提示我|告诉我|提醒|提示)?\\s*([^，。,；;\\n]+)`, 'gi');
+  const stagePattern = new RegExp(`(?:在\\s*)?${numberPattern}\\s*${unitPattern}\\s*(?:(?:的时候|时|后)\\s*)?(?:提醒我|提示我|告诉我|提醒|提示)\\s*([^，。,；;\\n]+)`, 'gi');
   let stageMatch;
   while ((stageMatch = stagePattern.exec(source))) {
     const stageDuration = parseDurationAmount(stageMatch[1], stageMatch[2]);
