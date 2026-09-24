@@ -151,10 +151,51 @@ function setMiniAiVisible(visible) {
   if (dock) dock.classList.toggle('hidden', !visible);
 }
 
+function placeMiniAiPanel() {
+  const dock = document.getElementById('miniAiDock');
+  const panel = document.getElementById('miniAiPanel');
+  if (!dock || !panel || panel.classList.contains('hidden') || dock.classList.contains('hidden')) return;
+
+  const padding = 12;
+  const gap = 10;
+  const bubbleRect = dock.getBoundingClientRect();
+  const panelWidth = panel.offsetWidth;
+  const panelHeight = panel.offsetHeight;
+  const maxLeft = Math.max(padding, window.innerWidth - panelWidth - padding);
+  const left = Math.min(maxLeft, Math.max(padding, bubbleRect.right - panelWidth));
+  const aboveTop = bubbleRect.top - panelHeight - gap;
+  const belowTop = bubbleRect.bottom + gap;
+  const maxTop = Math.max(padding, window.innerHeight - panelHeight - padding);
+  const top = aboveTop >= padding
+    ? aboveTop
+    : Math.min(maxTop, Math.max(padding, belowTop));
+
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.style.right = 'auto';
+  panel.style.bottom = 'auto';
+}
+
+function keepMiniAiDockInViewport() {
+  const dock = document.getElementById('miniAiDock');
+  if (!dock || dock.classList.contains('hidden')) return;
+  if (dock.style.top) {
+    const padding = 12;
+    const height = dock.offsetHeight || 82;
+    const maxTop = Math.max(padding, window.innerHeight - height - padding);
+    const currentTop = dock.getBoundingClientRect().top;
+    const top = Math.min(maxTop, Math.max(padding, currentTop));
+    dock.style.top = `${top}px`;
+    dock.style.bottom = 'auto';
+  }
+  placeMiniAiPanel();
+}
+
 function openMiniAiPanel() {
   const panel = document.getElementById('miniAiPanel');
   if (!panel) return;
   panel.classList.remove('hidden');
+  window.requestAnimationFrame(placeMiniAiPanel);
   document.getElementById('miniAiInput')?.focus();
   const messages = document.getElementById('miniAiMessages');
   if (messages) messages.scrollTop = messages.scrollHeight;
@@ -411,17 +452,19 @@ function enableMiniAiDrag() {
   bubble.addEventListener('pointermove', event => {
     if (!dragging) return;
     miniAiDragMoved = true;
-    const panel = document.getElementById('miniAiPanel');
-    const minTop = panel && !panel.classList.contains('hidden') ? Math.min(window.innerHeight - 94, panel.offsetHeight + 24) : 16;
-    const maxTop = Math.max(minTop, window.innerHeight - 98);
+    const bubbleHeight = dock.offsetHeight || 82;
+    const minTop = 12;
+    const maxTop = Math.max(minTop, window.innerHeight - bubbleHeight - 12);
     const top = Math.min(maxTop, Math.max(minTop, event.clientY - offsetY));
     dock.style.top = `${top}px`;
     dock.style.bottom = 'auto';
+    keepMiniAiDockInViewport();
   });
   const finishDrag = () => { dragging = false; window.setTimeout(() => { miniAiDragMoved = false; }, 0); };
   bubble.addEventListener('pointerup', finishDrag);
   bubble.addEventListener('pointercancel', finishDrag);
   bubble.addEventListener('click', () => { if (!miniAiDragMoved) window.toggleMiniAi(); });
+  window.addEventListener('resize', keepMiniAiDockInViewport);
 }
 
 // 主工作区独立大页面切换
