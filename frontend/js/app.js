@@ -296,7 +296,7 @@ function parseDurationAmount(amountText, unit) {
 
 function parseCookingStartCommand(text) {
   const source = String(text || '').replace(/\s+/g, ' ').trim();
-  const startMatch = source.match(/(?:^|[，。,；;\s])(?:我)?\s*(?:(?:现在|马上|准备|打算|想|想要|要|正在)\s*)?(?:开始\s*)?(?:做|制作|烹饪|煮|炒|炖|蒸|焖|烤|煎|煲)\s*(?:个|一道|一份)?\s*([^，。,；;:\n]+?)(?=\s*(?:预计|需要|用时|耗时|大约|约|总共|一共)|[，。,；;:\n]|$)/i);
+  const startMatch = source.match(/(?:^|[，。,；;\s])(?:我)?\s*(?:(?:现在|马上|准备|打算|想|想要|要|正在|再|再次|重新|继续)\s*)?(?:开始\s*)?(?:做|制作|烹饪|煮|炒|炖|蒸|焖|烤|煎|煲)\s*(?:个|一道|一份)?\s*([^，。,；;:\n]+?)(?=\s*(?:预计|需要|用时|耗时|大约|约|总共|一共)|[，。,；;:\n]|$)/i);
   if (!startMatch) return null;
   const dish = startMatch[1].replace(/^(一道|菜品|这道菜)\s*/, '').trim();
   if (!dish) return null;
