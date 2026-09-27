@@ -10,7 +10,7 @@
  * 6. 真实彻底清空 AI 记忆，杜绝上下文泄漏
  * 7. 双菜谱头部标签与按钮精准水平对齐，绝无单字折行
  */
-import { Api } from './api.js';
+import { Api } from './api.js?v=discard-post-20260927';
 
 // ==================== 1. 3D 冰箱与基础门状态 ====================
 let isUpperDoorOpen = false;
@@ -817,6 +817,8 @@ function parseErrorMessage(errData) {
   if (!errData) return "操作失败，请重试";
   if (typeof errData === 'string') return errData;
   if (typeof errData.detail === 'string') return errData.detail;
+  if (typeof errData.Message === 'string') return errData.Message;
+  if (typeof errData.message === 'string') return errData.message;
   return "数据格式有误，请核对输入";
 }
 
@@ -1149,12 +1151,17 @@ window.discardCurrentItem = async function() {
   if (!currentActiveItem) return;
   if (!confirm(`确认将已过期的「${currentActiveItem.name}」丢弃并彻底删除吗？`)) return;
 
-  const res = await Api.discardItem(currentActiveItem.id);
-  if (res.ok) {
+  try {
+    const res = await Api.discardItem(currentActiveItem.id);
+    if (!res.ok) {
+      const error = await res.json().catch(() => null);
+      alert(`丢弃失败：${parseErrorMessage(error)}`);
+      return;
+    }
     window.closeModal("foodDetailModal");
-    loadPantryItems();
-  } else {
-    alert("丢弃失败");
+    await loadPantryItems();
+  } catch (error) {
+    alert(`丢弃失败：${error.message || '网络请求异常，请稍后重试'}`);
   }
 };
 

@@ -256,6 +256,7 @@ async def batch_deduct_pantry_items(
     }
 
 # 6. 手动丢弃删除
+@router.post("/items/{item_id}/discard")
 @router.delete("/items/{item_id}")
 async def discard_pantry_item(item_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     stmt = select(PantryItem).where(PantryItem.id == item_id, PantryItem.user_id == user.id)

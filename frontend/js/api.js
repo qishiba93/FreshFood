@@ -214,8 +214,8 @@ export const Api = {
   },
 
   async discardItem(itemId) {
-    const res = await fetch(`/api/pantry/items/${itemId}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/pantry/items/${itemId}/discard`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);
