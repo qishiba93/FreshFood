@@ -155,12 +155,14 @@ export const Api = {
   },
 
   async deleteAdminStandardImage(id) {
-    const res = await fetch(`/api/admin/food-images/${id}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/admin/food-images/${id}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);
-    return await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "删除图库条目失败");
+    return data;
   },
 
   // ==================== 3. 冰箱食材管理接口 ====================
@@ -286,11 +288,15 @@ export const Api = {
   },
 
   async deleteShoppingItem(id) {
-    const res = await fetch(`/api/shopping/items/${id}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/shopping/items/${id}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "移除备菜项失败");
+    }
     return res;
   },
 
@@ -320,8 +326,8 @@ export const Api = {
   },
 
   async deleteFavorite(id) {
-    const res = await fetch(`/api/recipes/favorites/${id}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/recipes/favorites/${id}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);
@@ -336,8 +342,8 @@ export const Api = {
   },
 
   async deleteFavoriteByName(recipeName) {
-    const res = await fetch(`/api/recipes/favorites/by-name/${encodeURIComponent(recipeName)}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/recipes/favorites/by-name/${encodeURIComponent(recipeName)}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);
@@ -476,8 +482,8 @@ export const Api = {
   },
 
   async deleteCommunityComment(commentId) {
-    const res = await fetch(`/api/community/comments/${commentId}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/community/comments/${commentId}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);
@@ -503,8 +509,8 @@ export const Api = {
   },
 
   async deleteCommunityPost(postId) {
-    const res = await fetch(`/api/community/posts/${postId}`, {
-      method: 'DELETE',
+    const res = await fetch(`/api/community/posts/${postId}/delete`, {
+      method: 'POST',
       headers: getHeaders()
     });
     await checkAuthStatus(res);

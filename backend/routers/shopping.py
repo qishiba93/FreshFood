@@ -95,6 +95,7 @@ async def add_shopping_items_batch(
     }
 
 # 3. 删除/核销单个备菜项
+@router.post("/items/{item_id}/delete")
 @router.delete("/items/{item_id}")
 async def delete_shopping_item(
     item_id: int,

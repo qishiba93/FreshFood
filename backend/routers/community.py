@@ -245,6 +245,7 @@ async def list_post_comments(
     ]
 
 # 8. 删除评论 (评论人本人、发帖人、系统管理员均享有删除权)
+@router.post("/comments/{comment_id}/delete")
 @router.delete("/comments/{comment_id}")
 async def delete_post_comment(
     comment_id: int,
@@ -310,6 +311,7 @@ async def report_community_post(
     return {"message": "举报已成功提交！管理员控制台已收到工单并将核实处置。"}
 
 # 10. 删除自己的动态 (删除后不影响已被其他食友收藏保存的菜谱)
+@router.post("/posts/{post_id}/delete")
 @router.delete("/posts/{post_id}")
 async def delete_community_post(
     post_id: int,

@@ -462,6 +462,7 @@ async def list_favorite_recipes(
     return res.scalars().all()
 
 # 7. 按 ID 移除收藏
+@router.post("/favorites/{fav_id}/delete")
 @router.delete("/favorites/{fav_id}")
 async def delete_favorite_recipe(
     fav_id: int,
@@ -477,6 +478,7 @@ async def delete_favorite_recipe(
     return {"message": "已从收藏夹中移除", "recipe_name": fav.recipe_name}
 
 # 8. 按名称取消收藏
+@router.post("/favorites/by-name/{recipe_name:path}/delete")
 @router.delete("/favorites/by-name/{recipe_name}")
 async def delete_favorite_by_name(
     recipe_name: str,

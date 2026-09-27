@@ -81,6 +81,7 @@ async def list_standard_food_images(
     return res.scalars().all()
 
 # 4. 从图库中删除条目
+@router.post("/{std_id}/delete")
 @router.delete("/{std_id}")
 async def delete_standard_food_image(
     std_id: int,

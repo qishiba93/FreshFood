@@ -10,7 +10,7 @@
  * 6. 真实彻底清空 AI 记忆，杜绝上下文泄漏
  * 7. 双菜谱头部标签与按钮精准水平对齐，绝无单字折行
  */
-import { Api } from './api.js?v=discard-post-20260927';
+import { Api } from './api.js?v=button-fix-20260927';
 
 // ==================== 1. 3D 冰箱与基础门状态 ====================
 let isUpperDoorOpen = false;
@@ -1399,9 +1399,8 @@ function initCuisineAndMethodSection(scope) {
 }
 
 // ==================== 7. 常规在库食材 AI 菜谱生成 ====================
-window.requestAIRecipe = async function(peopleCount) {
+window.requestAIRecipe = async function(peopleCount, btn) {
   if (!currentActiveItem) return;
-  const btn = event.currentTarget;
   btn.textContent = "推演中...";
   btn.disabled = true;
 
@@ -1484,9 +1483,12 @@ async function setupStarButton(buttonId, recipeName, recipeData) {
   renderStarUI();
 
   btn.onclick = async () => {
+    btn.disabled = true;
     try {
       if (isFav) {
-        await Api.deleteFavoriteByName(recipeName);
+        const savedFavorite = allFavoritesCache.find(f => f.recipe_name.trim() === recipeName.trim());
+        if (savedFavorite?.id) await Api.deleteFavorite(savedFavorite.id);
+        else await Api.deleteFavoriteByName(recipeName);
         isFav = false;
         renderStarUI();
         allFavoritesCache = allFavoritesCache.filter(f => f.recipe_name.trim() !== recipeName.trim());
@@ -1495,7 +1497,7 @@ async function setupStarButton(buttonId, recipeName, recipeData) {
         const cal = isLowFat ? (recipeData.health_metric || recipeData.calories) : (recipeData.calories || null);
         const gly = !isLowFat ? (recipeData.health_metric || recipeData.glycemic_info) : (recipeData.glycemic_info || null);
 
-        await Api.saveFavorite({
+        const saved = await Api.saveFavorite({
           recipe_name: recipeName,
           category: recipeData.category || "custom",
           difficulty: recipeData.difficulty || "健康膳食",
@@ -1508,11 +1510,13 @@ async function setupStarButton(buttonId, recipeName, recipeData) {
         });
         isFav = true;
         renderStarUI();
-        allFavoritesCache.push({ recipe_name: recipeName });
+        allFavoritesCache.push({ id: saved.id, recipe_name: recipeName });
         alert("🎉 菜谱已成功存入您的收藏夹！");
       }
     } catch (err) {
       alert(err.message || "收藏操作失败");
+    } finally {
+      btn.disabled = false;
     }
   };
 }
@@ -2165,9 +2169,13 @@ async function refreshShoppingList() {
 }
 
 window.removeShoppingItem = async function(id) {
-  await Api.deleteShoppingItem(id);
-  await refreshShoppingList();
-  await refreshShoppingBadge();
+  try {
+    await Api.deleteShoppingItem(id);
+    await refreshShoppingList();
+    await refreshShoppingBadge();
+  } catch (error) {
+    alert(error.message || "移除备菜项失败");
+  }
 };
 
 async function refreshShoppingBadge() {
@@ -2744,9 +2752,13 @@ window.filterFavorites = function(keyword) {
 
 window.deleteFavorite = async function(id) {
   if (!confirm("确定移除此菜谱收藏吗？")) return;
-  await Api.deleteFavorite(id);
-  allFavoritesCache = allFavoritesCache.filter(f => f.id !== id);
-  renderFavoritesList(allFavoritesCache);
+  try {
+    await Api.deleteFavorite(id);
+    allFavoritesCache = allFavoritesCache.filter(f => f.id !== id);
+    window.filterFavorites(document.getElementById("favoriteSearchInput")?.value || "");
+  } catch (error) {
+    alert(error.message || "移除收藏失败");
+  }
 };
 
 // ==================== 16. 初始化与事件监听 ====================

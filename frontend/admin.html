@@ -509,13 +509,14 @@
 
   <!-- ================= 管理端专属交互逻辑 ================= -->
   <script type="module">
-    import { Api } from '/js/api.js';
+    import { Api } from '/js/api.js?v=button-fix-20260927';
 
     let currentAdmin = null;
     let targetResetUserId = null;
     // 默认进入热力图
     let currentTab = 'heatmap';
     let allUsersCache = [];
+    let allFoodImagesCache = [];
 
     window.currentReportsCache = [];
     window.globalDailyDetailsCache = {};
@@ -646,10 +647,10 @@
           <td class="py-3 px-4 text-slate-400 font-mono">${u.created_at}</td>
           <td class="py-3 px-4 text-right space-x-2">
             ${canManage ? `
-              <button onclick="openResetPasswordModal(${u.id}, '${u.username}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
+              <button onclick="openResetPasswordModal(${u.id})" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
                 🔑 改密
               </button>
-              <button onclick="deleteUser(${u.id}, '${u.username}')" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition border border-red-200">
+              <button onclick="deleteUser(${u.id})" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs font-semibold transition border border-red-200">
                 🗑️ 级联删除
               </button>
             ` : '<span class="text-[11px] text-slate-300 select-none">受限保护</span>'}
@@ -1211,6 +1212,7 @@
 
       try {
         const list = await Api.getAdminStandardImages();
+        allFoodImagesCache = list;
         if (!list.length) {
           container.innerHTML = '<div class="col-span-full py-8 text-center text-xs text-slate-400">图库为空，点击右上角收录新标准食材！</div>';
           return;
@@ -1225,7 +1227,7 @@
             </div>
             <div class="mt-2 pt-2 border-t border-slate-100 flex justify-between items-center">
               <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">${item.category}</span>
-              <button onclick="deleteFoodImage(${item.id}, '${item.food_name}')" class="text-xs text-red-500 hover:text-red-700">删除</button>
+              <button onclick="deleteFoodImage(${item.id})" class="text-xs text-red-500 hover:text-red-700">删除</button>
             </div>
           </div>
         `).join('');
@@ -1275,14 +1277,15 @@
       }
     };
 
-    window.deleteFoodImage = async function(id, name) {
+    window.deleteFoodImage = async function(id) {
+      const name = allFoodImagesCache.find(item => item.id === id)?.food_name || `ID ${id}`;
       if (!confirm(`确定从标准图库中删除「${name}」吗？`)) return;
       try {
         const res = await Api.deleteAdminStandardImage(id);
         alert(res.message || "删除成功");
         await loadAdminFoodImages();
       } catch (err) {
-        alert("删除失败");
+        alert(err.message || "删除失败");
       }
     };
 
@@ -1316,7 +1319,8 @@
     };
 
     // 重置密码
-    window.openResetPasswordModal = function(userId, username) {
+    window.openResetPasswordModal = function(userId) {
+      const username = allUsersCache.find(user => user.id === userId)?.username || `ID ${userId}`;
       targetResetUserId = userId;
       document.getElementById("resetPwdTitle").textContent = `重置「${username}」的密码`;
       document.getElementById("resetNewPassword").value = "";
@@ -1341,7 +1345,8 @@
     };
 
     // 级联删除账号
-    window.deleteUser = async function(userId, username) {
+    window.deleteUser = async function(userId) {
+      const username = allUsersCache.find(user => user.id === userId)?.username || `ID ${userId}`;
       if (!confirm(`【高危级联清除警告】\n\n确定彻底删除账号「${username}」吗？\n该用户存放在数据库中的所有冰箱食材、自创菜谱、备菜清单将【被物理级联完全清空】！`)) {
         return;
       }
