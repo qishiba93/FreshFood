@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI):
             await seed_demo_data(session, persistent_dir)
     yield
 
-app = FastAPI(title="智鲜厨房 OS - 全场景精准健康厨房", version="3.3.0", lifespan=lifespan)
+app = FastAPI(title="鲜立方——面向膳食规划与食材减损管控的Agent数字孪生智能冰箱", version="3.3.0", lifespan=lifespan)
 
 # 允许跨域请求
 app.add_middleware(
